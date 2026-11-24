@@ -1,37 +1,135 @@
-# figma-make-app
+# 桌码点餐 H5 · 工作说明
 
-React + Vite + Tailwind CSS project running inside Figma Make.
+顾客扫码点餐 H5。设计稿 390×844，繁体中文 / English 双语。
 
-## Development Server
+- 线上：https://wanghyook-bit.github.io/table-ordering-demo/
+- 仓库：https://github.com/wanghyook-bit/table-ordering-demo
+- 发布：`main` 分支 / `docs` 目录
 
-A Vite development server is **already running** on `$PORT` (default 8443). You don't need to start it manually.
+---
 
-- Preview URL: The user can access the running app through the preview panel
-- Hot reload: Changes to source files are reflected immediately
+## 1. 目录结构
 
-## Project Structure
+```
+src/            源码，唯一改动入口
+public/         静态资源（trial.html、图片、robots.txt）
+docs/           构建产物，GitHub Pages 直接发布；不要手改
+index.html      Vite 入口，挂载 #root，加载 src/main.tsx
+vite.config.ts  base 由 FIGMA_PUBLIC_URL 控制，outDir = docs
+dev-notes/      组件盘点等文档（会影响构建，见 §5）
+```
 
-This is the canonical project structure. Start with task-relevant files below. Only follow imports or inspect other files when required, when a documented path is missing, or when the repository contradicts this guide.
+主要源码文件：
 
-- `src/main.tsx` - React entrypoint; imports `src/index.css` and mounts `src/App.tsx` into the `#root` element
-- `src/App.tsx` - Primary application component and the usual starting point for UI work
-- `src/index.css` - Global CSS entrypoint and Tailwind CSS v4 import
-- `index.html` - Vite HTML shell containing the `#root` element and loading `src/main.tsx`
-- `package.json` - Project dependencies and the Vite build, development, preview, and formatting scripts
-- `vite.config.ts` - Vite configuration with React, Tailwind CSS v4, and Figma Make plugins plus the `@` alias for `src`
-- `.mise.toml` - Toolchain versions for Node.js and pnpm
+- `src/main.tsx` — 入口，引入 `src/index.css`，挂载 `src/App.tsx`
+- `src/App.tsx` — 主界面与页面路由
+- `src/components/` — `menu / confirm / orders / pay / member / pricing / store / ui / Welcome`
+- `src/data.ts` — 文案与菜单数据（双语）
+- `src/index.css` — Tailwind 入口与设计 token
 
-## Dependencies
+## 2. 改动流程
 
-- Runtime: React 19 and React DOM 19
-- Styling: Tailwind CSS v4 with the `@tailwindcss/vite` plugin
-- Build tooling: Vite 8, TypeScript 5.7, and `@vitejs/plugin-react`
-- Formatting: oxfmt
+```bash
+cd /Users/yanghao/Desktop/桌码1.2-仓库
 
-## Styling
+# 1. 只改 src/ 和 public/
 
-This project uses **Tailwind CSS v4** through the `@tailwindcss/vite` plugin configured in `vite.config.ts`. `src/index.css` imports Tailwind with `@import 'tailwindcss';`. Use Tailwind utility classes directly in JSX and put global CSS or Tailwind v4 theme customization in `src/index.css`. This scaffold does not need a Tailwind config file or PostCSS config.
+# 2. 类型检查
+npx tsc --noEmit
 
-`src/main.tsx` imports `src/index.css`, so global font wiring belongs in `src/index.css`. Keep CSS `@import` statements first, then add any `@font-face` rules and font-family defaults there.
+# 3. 构建（必须带 FIGMA_PUBLIC_URL，否则资源路径会错）
+FIGMA_PUBLIC_URL=/table-ordering-demo pnpm build
 
-Tailwind emits utility classes in `@layer utilities`, and CSS outside any cascade layer overrides every layer regardless of specificity. Put global element styles, such as resets and defaults for `body`, headings, `button`, or `input`, inside `@layer base { ... }` so utility classes on those elements still apply. Tailwind's Preflight already applies `box-sizing: border-box`, removes default margins, and sets `font: inherit` on form controls, so do not repeat those rules.
+# 4. 本地预览核对
+npx vite preview --outDir docs
+
+# 5. 确认无误后再提交
+git add -A
+git commit -m "说明这次改了什么"
+git push origin main
+```
+
+`docs/` 会随构建整体重写，和源码在同一个 commit 里，一一对应。
+
+## 3. 硬规则
+
+1. **不要手改 `docs/`**，下次构建会覆盖。
+2. **不要删 `src/index.css` 里的 `@source not "../docs"`**，删了会导致构建漂移。
+3. **不要提交 `node_modules`**，包括软链。
+4. **不要擅自改文案**。增删措辞、换字（如「登陸 / 登入」）必须明确授权。
+5. **不要擅自改视觉**（间距、字号、颜色、圆角、组件结构）。视觉改动必须指定基准版本。
+6. 改完必须给验证证据（hash / 截图），不能只说「改好了」。
+7. 一次只推进一个决定或一个页面，不要顺手重做别的地方。
+
+## 4. 验收标准
+
+- `npx tsc --noEmit` 无报错
+- `docs/index.html` 里的资源路径是 `/table-ordering-demo/assets/...`
+- 线上 JS/CSS 与本地构建 hash 一致
+- 390×844 截图核对改动的页面
+- 连续构建两次，两次 hash 必须相同
+
+## 5. 已知的坑（踩过的，别再踩）
+
+### Tailwind v4 会扫描整个仓库
+产物放进 `docs/` 后，第二次构建会把产物里的类名再喂回 CSS，导致 CSS 变大、hash 漂移。
+解法：`src/index.css` 顶部有 `@source not "../docs"`，**永久保留**。
+
+### 文档内容也会影响 CSS 输出
+Tailwind 会扫描 `dev-notes/*.md`。`component-inventory.md` 里出现过 `warning` 字样，
+CSS 才生成了 `--color-warning`。删掉这个文档，CSS 就少 24 字节、hash 变化。
+**清文档前先构建对比 hash，不要凭直觉删。**
+
+### Pages 改配置后不会自动重新发布
+改 `source` 到 `main /docs` 后，线上可能仍是旧内容。需要手动触发：
+
+```bash
+gh api -X POST repos/wanghyook-bit/table-ordering-demo/pages/builds
+gh api repos/wanghyook-bit/table-ordering-demo/pages/builds --jq '.[0].status'
+```
+
+等到 `built` 再验线上。
+
+### 这个仓库曾经只有产物
+2026-11-24 之前，仓库只有编译后的 JS/CSS，源码从未入库，导致完全无法回溯。
+现在的源码是按会话日志逐个 patch 重放还原的，已用产物 hash 逐字节验证。
+**以后任何改动都必须走 `src/`，禁止直接改 `docs/assets/*.js`。**
+
+### 金额口径
+固定六项：小計 / 服務費 / 優惠 / 總計 / 已付 / 剩餘應付。
+不要出现「預計應付 / 應付合計 / 本次已付」这类同义混用。
+
+### 后付流程
+提交订单 → 直接进订单详情，**绝不进支付页**。
+首单可走人工接单（等待商家接單）；拒单后不得付款、不出厨房单。
+
+## 6. 版本与回滚
+
+- `v1.0-dist`：重构前的纯产物快照（commit `5094853`），随时可回到旧版
+- 线上回滚：Pages 改回 `main /`，或把 `docs/` 换成该 tag 的产物
+
+## 7. RSI：迭代经验记录
+
+每次踩到新坑，追加一行。写清**现象 / 原因 / 解法**，不要写「要注意一下」这种空话。
+
+| 日期 | 现象 | 原因 | 解法 |
+| --- | --- | --- | --- |
+| 2026-11-24 | 二次构建 CSS 变大，hash 漂移 | Tailwind v4 扫描 `docs/` 产物 | `@source not "../docs"` |
+| 2026-11-24 | 删文档后 CSS 少一个 token | Tailwind 扫描 md 里的字样 | 清文档前构建对比 hash |
+| 2026-11-24 | Pages 改配置后线上仍是旧内容 | 改配置不触发新构建 | 手动 POST `pages/builds` |
+| 2026-11-24 | 源码无法回溯 | 历史仓库只提交产物 | 源码入库，产物进 `docs/` |
+
+## 8. 技术栈
+
+- React 19 + Vite 8 + TypeScript 5.7
+- Tailwind CSS v4（`@tailwindcss/vite`，无 tailwind.config）
+- 格式化：oxfmt
+
+### Tailwind 用法补充
+
+`src/index.css` 用 `@import 'tailwindcss';` 引入。直接在 JSX 里写 utility class，
+全局样式和主题 token 写在 `src/index.css` 的 `@theme` 里。
+
+`@import` 必须放在最前面。全局元素样式（body、heading、button、input）放进
+`@layer base { ... }`，否则会盖掉元素上的 utility class。
+Preflight 已经处理了 `box-sizing`、默认 margin、表单 `font: inherit`，不要重复写。
