@@ -1,0 +1,7 @@
+OpenMoji — HfG Schwäbisch Gmünd and contributors
+https://openmoji.org/library/
+
+Unmodified color SVGs: dumpling (1F95F), pot of food (1F372),
+steaming bowl (1F35C), and leafy green (1F96C).
+
+Licensed under CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/

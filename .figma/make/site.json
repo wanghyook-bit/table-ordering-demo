@@ -1,0 +1,10 @@
+{
+  "description": "Helps users design polished, internationally appealing interfaces by combining the features and workflows of one reference with the visual style of another.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

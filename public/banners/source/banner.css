@@ -1,0 +1,309 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 1600px; height: 600px; overflow: hidden; }
+body { background: #111; }
+.banner {
+  position: relative;
+  width: 1600px;
+  height: 600px;
+  overflow: hidden;
+  font-family: "Avenir Next", "PingFang SC", "Helvetica Neue", sans-serif;
+  isolation: isolate;
+}
+.noise {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  opacity: .12;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.8'/%3E%3C/svg%3E");
+}
+.grain-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+  pointer-events: none;
+  opacity: .23;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.22) 0 1px, transparent 1px 5px);
+  mix-blend-mode: soft-light;
+}
+.side-label {
+  position: absolute;
+  z-index: 8;
+  right: 26px;
+  bottom: 32px;
+  color: rgba(255,255,255,.88);
+  font: 800 13px/1 "Avenir Next", sans-serif;
+  letter-spacing: .22em;
+  writing-mode: vertical-rl;
+}
+.copy {
+  position: absolute;
+  z-index: 9;
+  left: 82px;
+  top: 64px;
+  width: 730px;
+  color: #fff;
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 22px;
+  padding: 9px 15px 8px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font: 800 15px/1 "Avenir Next", sans-serif;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+.eyebrow .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+h1 {
+  margin: 0;
+  font-family: "PingFang SC", "Avenir Next", sans-serif;
+  font-weight: 900;
+  letter-spacing: -.075em;
+  text-transform: uppercase;
+}
+h1 .line { display: block; }
+h1 .display-en {
+  display: block;
+  margin-top: 3px;
+  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  font-size: 94px;
+  line-height: .82;
+  letter-spacing: -.035em;
+}
+.subline {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font: 800 14px/1.4 "Avenir Next", sans-serif;
+  letter-spacing: .19em;
+  text-transform: uppercase;
+}
+.subline .rule { width: 72px; height: 3px; background: currentColor; }
+.chips { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+.chip {
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  padding: 9px 13px 7px;
+  font: 800 13px/1 "Avenir Next", sans-serif;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.art { position: absolute; z-index: 7; }
+.corner-no {
+  position: absolute;
+  z-index: 9;
+  top: 31px;
+  right: 38px;
+  font: 900 15px/1 "Avenir Next", sans-serif;
+  letter-spacing: .22em;
+  color: rgba(255,255,255,.72);
+}
+.spark { position: absolute; z-index: 10; color: #fff; }
+.spark svg { display: block; width: 100%; height: 100%; }
+
+/* Banner 01 */
+.banner-01 { background: #ff5b21; }
+.banner-01::before {
+  content: "";
+  position: absolute;
+  width: 940px;
+  height: 940px;
+  border-radius: 50%;
+  right: -260px;
+  top: -250px;
+  background: #ffca3a;
+  z-index: 0;
+}
+.banner-01::after {
+  content: "";
+  position: absolute;
+  width: 1300px;
+  height: 110px;
+  left: -100px;
+  bottom: -50px;
+  background: #1a1715;
+  transform: rotate(-3deg);
+  z-index: 1;
+  opacity: .94;
+}
+.banner-01 .copy { padding-top: 2px; }
+.banner-01 h1 { font-size: 106px; line-height: 1.02; }
+.banner-01 h1 .line:first-child { color: #fff9e9; }
+.banner-01 h1 .line.accent { color: #1a1715; text-shadow: 4px 4px 0 #fff9e9; }
+.banner-01 .subline { color: #1a1715; }
+.banner-01 .chips { color: #1a1715; }
+.banner-01 .art { right: 40px; top: 44px; width: 760px; height: 540px; }
+.banner-01 .tile-float {
+  position: absolute;
+  left: 19px;
+  top: 58px;
+  width: 26px;
+  height: 480px;
+  opacity: .85;
+  background: repeating-linear-gradient(0deg, #fff9e9 0 16px, transparent 16px 32px);
+}
+.banner-01 .stamp {
+  position: absolute;
+  z-index: 9;
+  right: 66px;
+  top: 70px;
+  width: 114px;
+  height: 114px;
+  border: 3px solid #1a1715;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: #1a1715;
+  background: #fff9e9;
+  transform: rotate(9deg);
+  font: 900 15px/1.05 "Avenir Next", sans-serif;
+  letter-spacing: .08em;
+}
+.banner-01 .stamp strong { display: block; font-size: 27px; margin-bottom: 3px; }
+.banner-01 .floating-word {
+  position: absolute;
+  z-index: 6;
+  top: 135px;
+  left: 842px;
+  color: rgba(255,249,233,.24);
+  font: 900 150px/1 "Arial Black", "Avenir Next Condensed", sans-serif;
+  letter-spacing: -.06em;
+  transform: rotate(-90deg) translateX(-235px);
+  transform-origin: left top;
+  white-space: nowrap;
+}
+
+/* Banner 02 */
+.banner-02 { background: #087a66; }
+.banner-02::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(226,255,100,.095) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(226,255,100,.095) 1px, transparent 1px);
+  background-size: 42px 42px;
+}
+.banner-02::after {
+  content: "";
+  position: absolute;
+  left: -220px;
+  top: 430px;
+  width: 620px;
+  height: 620px;
+  border: 68px solid #e2ff64;
+  border-radius: 50%;
+  opacity: .95;
+  z-index: 0;
+}
+.banner-02 .copy { left: 92px; top: 60px; color: #fff9e6; }
+.banner-02 .eyebrow { color: #e2ff64; border-color: #e2ff64; }
+.banner-02 h1 { font-size: 104px; line-height: 1.02; }
+.banner-02 h1 .line.one { color: #fff9e6; }
+.banner-02 h1 .line.two { color: #e2ff64; margin-left: 96px; }
+.banner-02 h1 .display-en {
+  position: absolute;
+  top: 148px;
+  left: 482px;
+  z-index: -1;
+  color: rgba(255,249,230,.13);
+  font-size: 160px;
+  letter-spacing: -.05em;
+}
+.banner-02 .subline { color: #fff9e6; }
+.banner-02 .chips { color: #fff9e6; }
+.banner-02 .art { right: 11px; top: 27px; width: 695px; height: 560px; }
+.banner-02 .corner-no { color: rgba(255,249,230,.7); }
+.banner-02 .red-sticker {
+  position: absolute;
+  z-index: 10;
+  right: 64px;
+  top: 63px;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: #ff4b37;
+  color: #1a1715;
+  transform: rotate(-9deg);
+  font: 900 14px/1.08 "Avenir Next", sans-serif;
+  letter-spacing: .08em;
+}
+.banner-02 .red-sticker strong { display: block; font-size: 26px; margin-bottom: 3px; }
+.banner-02 .side-label { color: #1a1715; }
+
+/* Banner 03 */
+.banner-03 { background: #243cff; }
+.banner-03::before {
+  content: "";
+  position: absolute;
+  right: -250px;
+  top: -250px;
+  width: 820px;
+  height: 820px;
+  border-radius: 50%;
+  background: #ff79b9;
+  z-index: 0;
+}
+.banner-03::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 118px;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, transparent 0 4%, #ffd93d 4% 8%, transparent 8% 13%, #ffd93d 13% 17%, transparent 17% 24%, #ffd93d 24% 29%, transparent 29% 37%, #ffd93d 37% 43%, transparent 43% 51%, #ffd93d 51% 55%, transparent 55% 64%, #ffd93d 64% 69%, transparent 69% 78%, #ffd93d 78% 83%, transparent 83% 92%, #ffd93d 92% 96%, transparent 96%),
+    #151c5e;
+  clip-path: polygon(0 55%, 4% 55%, 4% 25%, 8% 25%, 8% 55%, 13% 55%, 13% 10%, 17% 10%, 17% 55%, 23% 55%, 23% 34%, 28% 34%, 28% 55%, 36% 55%, 36% 17%, 41% 17%, 41% 55%, 49% 55%, 49% 7%, 54% 7%, 54% 55%, 62% 55%, 62% 29%, 68% 29%, 68% 55%, 76% 55%, 76% 13%, 81% 13%, 81% 55%, 90% 55%, 90% 33%, 95% 33%, 95% 55%, 100% 55%, 100% 100%, 0 100%);
+}
+.banner-03 .copy { left: 92px; top: 58px; color: #fff; }
+.banner-03 .eyebrow { color: #ffd93d; border-color: #ffd93d; }
+.banner-03 h1 { font-size: 116px; line-height: .96; }
+.banner-03 h1 .line.one { color: #fff; letter-spacing: -.09em; }
+.banner-03 h1 .line.two { color: #ffd93d; margin-left: 90px; text-shadow: 5px 5px 0 #151c5e; }
+.banner-03 .display-en {
+  display: block;
+  margin-top: 20px;
+  color: #ff79b9;
+  font: 900 54px/.9 "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  letter-spacing: -.02em;
+}
+.banner-03 .subline { color: #fff; margin-top: 22px; }
+.banner-03 .chips { color: #fff; }
+.banner-03 .art { right: -2px; top: 20px; width: 710px; height: 570px; }
+.banner-03 .corner-no { color: rgba(255,255,255,.75); }
+.banner-03 .global-label {
+  position: absolute;
+  z-index: 10;
+  left: 895px;
+  top: 45px;
+  color: #fff;
+  font: 900 13px/1.25 "Avenir Next", sans-serif;
+  letter-spacing: .18em;
+  text-align: center;
+  transform: rotate(4deg);
+}
+.banner-03 .global-label strong {
+  display: block;
+  color: #ffd93d;
+  font-size: 28px;
+  letter-spacing: -.02em;
+}
+.banner-03 .spark-left { left: 765px; top: 358px; width: 53px; height: 53px; color: #ffd93d; }
+.banner-03 .spark-right { right: 28px; bottom: 88px; width: 40px; height: 40px; color: #fff; }

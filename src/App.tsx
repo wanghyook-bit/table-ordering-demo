@@ -1,0 +1,702 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Globe,
+  ReceiptText,
+  Search,
+  ShoppingBag,
+  Signal,
+  Trash2,
+  UtensilsCrossed,
+  Wifi,
+} from 'lucide-react'
+import { HOME_AVATAR, HOME_HERO, categories, dishOptions, dishes, strings, type Dish, type L10n, type Lang } from './data'
+import { isCustomizable, lineKey, type CartLine } from './cart'
+import { BottomSheet, Button, ChoiceRow, Empty, IconButton, LANGS, OptionChip, Stepper, TextButton, Thumb, money, tagClass } from './components/ui'
+import { FeeRows, feeText } from './components/pricing'
+import { couponIssue, quoteCart, storeRules, toCents, type CouponId, type PriceQuote, type QuoteOptions } from './pricing'
+import { CartBar, CartRow, DishCard, DishPage, SearchOverlay } from './components/menu'
+import { Welcome, type Mode } from './components/Welcome'
+import { OrderDetail, calculateBill, type PaymentRecord, type Round } from './components/orders'
+import { ConfirmPage, hasValidOrderContact, type Contact } from './components/confirm'
+import { PaymentFlow, PaymentResultSheet, type TablePaymentResult } from './components/pay'
+import { MemberPage, type Member } from './components/member'
+import { useBackSwipe, useBrowserBack } from './gestures'
+
+// One table session = one order number; rounds are first order + add-ons
+const ORDER_NO = 1041
+const PICKUP = 'T021'
+const RECEIPT_NO = '0001'
+const entry = new URLSearchParams(window.location.search)
+const table = entry.get('code') === 'table' ? entry.get('table')?.trim() || 'A08' : null
+const storeCode = entry.get('code') === 'store'
+const demo = entry.get('demo') === 'fees' || (entry.get('demo') === 'postpay' && !table)
+const manualAcceptance = entry.get('accept') === 'manual'
+const prepay = entry.get('payment') === 'prepay'
+const gateway = entry.get('channel') === 'gateway'
+const online = entry.get('online') !== '0' && entry.get('ordering') !== 'only'
+const readonly = entry.get('ordering') === 'readonly'
+const storeState = entry.get('store')
+const canOrder = !readonly && storeState !== 'closed' && storeState !== 'offline'
+const manualSettlement = entry.get('settlement') === 'manual'
+const sessionKey = `ordering-a3:${window.location.search}`
+const paymentSessionKey = `${sessionKey}:payment`
+function restoreSession() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(sessionKey) || 'null')
+    return saved ? { ...saved, payments: (saved.payments ?? []).map((payment: PaymentRecord) => ({ ...payment, paidAt: new Date(payment.paidAt) })) } : null
+  } catch { return null }
+}
+
+export function hasTablePaymentToResume() {
+  if (!table) return false
+  const session = restoreSession()
+  return !!(session?.paymentResult || session?.pendingRound || session?.tablePaymentOpen)
+}
+
+function demoCart(): CartLine[] {
+  if (!demo) return []
+  return dishes.filter((dish) => dish.id === 'r1' || dish.id === 'sw1').map((dish) => {
+    const opts = (dishOptions[dish.id] ?? []).filter((group) => group.type === 'single').map((group) => group.options[0].id)
+    return { key: lineKey(dish.id, opts, ''), dish, opts, note: '', qty: 1 }
+  })
+}
+
+type OrderRequest = { status: 'waiting' | 'cancelled'; round: Round }
+
+type Sheet = null | 'language' | 'cart' | 'categories'
+type Page = null | 'search' | 'confirm' | 'orders' | 'pay' | 'member' | { dish: Dish }
+
+export default function App() {
+  // Keep the 390 × 844 preview intact when the desktop side panel is short.
+  const [previewScale, setPreviewScale] = useState(1)
+  useEffect(() => {
+    const updatePreviewScale = () => {
+      const desktop = window.matchMedia('(min-width: 640px) and (pointer: fine)').matches
+      setPreviewScale(desktop ? Math.min(1, Math.max(0.1, (window.innerHeight - 48) / 844), Math.max(0.1, (window.innerWidth - 48) / 390)) : 1)
+    }
+    updatePreviewScale()
+    window.addEventListener('resize', updatePreviewScale)
+    return () => window.removeEventListener('resize', updatePreviewScale)
+  }, [])
+  useBrowserBack()
+  // Hong Kong default: Traditional Chinese
+  const [savedSession] = useState(restoreSession)
+  const [lang, setLang] = useState<Lang>('hk')
+  const t = (s: L10n) => s[lang]
+  const langAttr = LANGS.find((l) => l.code === lang)!.attr
+
+  const [entered, setEntered] = useState(!!table || (savedSession?.entered ?? (!!storeCode || demo)))
+  const [member, setMember] = useState<Member | null>(null)
+  const [memberLoggedIn, setMemberLoggedIn] = useState(false)
+  const [mode, setMode] = useState<Mode>(savedSession?.mode ?? (demo && !table ? 'takeaway' : 'dine'))
+  const [lines, setLines] = useState<CartLine[]>(savedSession?.lines ?? demoCart())
+  const [coupon, setCoupon] = useState<CouponId | null>(savedSession?.coupon ?? null)
+  const [couponNotice, setCouponNotice] = useState<ReturnType<typeof couponIssue>>(null)
+  const [packagingCents, setPackagingCents] = useState(storeRules.packagingCents)
+  const [reviewQuote, setReviewQuote] = useState<PriceQuote | null>(null)
+  const [repriced, setRepriced] = useState(false)
+  const [rounds, setRounds] = useState<Round[]>(savedSession?.rounds ?? [])
+  const [payments, setPayments] = useState<PaymentRecord[]>(savedSession?.payments ?? [])
+  const [request, setRequest] = useState<OrderRequest | null>(savedSession?.request ?? null)
+  const [animateOrderSuccess, setAnimateOrderSuccess] = useState(false)
+  const [lastPaidAmount, setLastPaidAmount] = useState<number | null>(null)
+  const [contact, setContact] = useState<Contact>(savedSession?.contact ?? { name: '', phone: '' })
+  const [guests, setGuests] = useState(savedSession?.guests ?? 1)
+  const [orderNote, setOrderNote] = useState(savedSession?.orderNote ?? '')
+  const [settled, setSettled] = useState(savedSession?.settled ?? false)
+  const [pendingRound, setPendingRound] = useState<Round | null>(savedSession?.pendingRound ?? null)
+  const [paymentAttempt, setPaymentAttempt] = useState(0)
+  const [paymentResult, setPaymentResult] = useState<TablePaymentResult | null>(savedSession?.paymentResult ?? null)
+  const [sheet, setSheet] = useState<Sheet>(null)
+  const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.pendingRound || savedSession?.tablePaymentOpen ? 'pay' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [active, setActive] = useState('all')
+  const [scrollY, setScrollY] = useState(0)
+  const [categoryPinned, setCategoryPinned] = useState(false)
+  const [bump, setBump] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const categoryNavRef = useRef<HTMLElement>(null)
+  const categoryTabsRef = useRef<HTMLDivElement>(null)
+  const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
+  const menuSwipe = useBackSwipe(!table && entered && !page && !sheet ? () => {
+    setEntered(false)
+    setActive('all')
+    scrollRef.current?.scrollTo({ top: 0 })
+  } : undefined)
+
+  const tablePaymentOpen = !!table && page === 'pay'
+  useEffect(() => {
+    sessionStorage.setItem(sessionKey, JSON.stringify({ entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen }))
+    if (paymentResult) sessionStorage.removeItem(paymentSessionKey)
+  }, [entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen])
+
+  const count = lines.reduce((s, l) => s + l.qty, 0)
+  const pricingOptions: QuoteOptions = { mode, coupon: null, addOn: rounds.length > 0, packagingCents }
+  const quote = quoteCart(lines, pricingOptions)
+  const invalidCoupon = coupon ? couponIssue(lines, pricingOptions, coupon) : null
+
+  useEffect(() => {
+    if (!invalidCoupon) return
+    setCoupon(null)
+    setCouponNotice(invalidCoupon)
+  }, [invalidCoupon])
+
+  const tally = (ls: CartLine[]) => {
+    const m: Record<string, number> = {}
+    for (const l of ls) m[l.dish.id] = (m[l.dish.id] ?? 0) + l.qty
+    return m
+  }
+  const qtyByDish = useMemo(() => tally(lines), [lines])
+  // Dishes already sent to the kitchen — marked on the menu when ordering more
+  const orderedByDish = useMemo(() => tally(rounds.flatMap((r) => r.lines)), [rounds])
+  const bill = calculateBill(rounds, payments)
+
+  const addLine = (dish: Dish, opts: string[], note: string, qty: number) => {
+    const key = lineKey(dish.id, opts, note)
+    setBump((b) => b + 1)
+    setLines((ls) => {
+      const found = ls.find((l) => l.key === key)
+      if (found) return ls.map((l) => (l.key === key ? { ...l, qty: l.qty + qty } : l))
+      return [...ls, { key, dish, opts, note: note.trim(), qty }]
+    })
+  }
+  const changeLine = (key: string, delta: number) => {
+    if (delta > 0) setBump((b) => b + 1)
+    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0))
+  }
+  // Customisable dishes open the detail page; simple ones add straight away.
+  const lockedMessage = lang === 'en' ? 'Ordering unavailable' : '暫不可下單'
+  const quickAdd = (dish: Dish) => { if (!canOrder) { setToast(lockedMessage); return } return isCustomizable(dish) ? setPage({ dish }) : addLine(dish, [], '', 1) }
+
+  useEffect(() => {
+    if (!toast) return
+    const id = setTimeout(() => setToast(null), 2200)
+    return () => clearTimeout(id)
+  }, [toast])
+
+  const stickyOffset = () => {
+    const nav = categoryNavRef.current
+    return nav ? nav.offsetHeight + (parseFloat(getComputedStyle(nav).top) || 0) : 0
+  }
+
+  const scrollTo = (id: string) => {
+    const el = scrollRef.current
+    if (!el) return
+    const target = sectionRefs.current[id]
+    setActive(id)
+    if (id === 'all') el.scrollTo({ top: 0, behavior: 'smooth' })
+    if (target) el.scrollTo({ top: Math.max(0, target.offsetTop - stickyOffset() + 4), behavior: 'smooth' })
+  }
+
+  const onScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    setScrollY(el.scrollTop)
+    const nav = categoryNavRef.current
+    if (nav) {
+      const top = parseFloat(getComputedStyle(nav).top) || 0
+      setCategoryPinned(el.scrollTop > 0 && nav.getBoundingClientRect().top <= el.getBoundingClientRect().top + top + 1)
+    }
+    const offset = stickyOffset() + 12
+    const first = sectionRefs.current[categories[0].id]
+    if (first && el.scrollTop < first.offsetTop - offset - 30) return setActive('all')
+    const activationLine = el.getBoundingClientRect().top + offset
+    let current = 'all'
+    for (const c of categories) {
+      const sec = sectionRefs.current[c.id]
+      if (sec && sec.getBoundingClientRect().top <= activationLine) current = c.id
+    }
+    setActive(current)
+  }
+
+  const barSolid = scrollY > 140
+
+  useEffect(() => {
+    const container = categoryTabsRef.current
+    const selected = container?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (!container || !selected) return
+    const left = selected.getBoundingClientRect().left - container.getBoundingClientRect().left + container.scrollLeft
+    const right = left + selected.offsetWidth
+    if (left < container.scrollLeft || right > container.scrollLeft + container.clientWidth) {
+      container.scrollTo({ left: left - (container.clientWidth - selected.offsetWidth) / 2, behavior: 'smooth' })
+    }
+  }, [active])
+
+  const acceptOrder = (round: Round) => {
+    setRounds((previous) => previous.some((item) => item.id === round.id) ? previous : [...previous, round])
+    if (table) setSettled(false)
+    setRequest(null)
+    setAnimateOrderSuccess(true)
+  }
+
+  const submitOrder = () => {
+    if (!lines.length || pendingRound || request?.status === 'waiting' || !canOrder) return
+    if (!hasValidOrderContact(mode, contact)) return
+    const latestPackaging = entry.get('reprice') === '1' && quote.packaging > 0 ? storeRules.packagingCents + 100 : packagingCents
+    const latestQuote = quoteCart(lines, { ...pricingOptions, packagingCents: latestPackaging })
+    if (!reviewQuote || JSON.stringify(latestQuote) !== JSON.stringify(reviewQuote)) {
+      setPackagingCents(latestPackaging)
+      setReviewQuote(latestQuote)
+      setRepriced(true)
+      return
+    }
+    const round = {
+      id: rounds.length + 1,
+      lines,
+      mode,
+      quote: latestQuote,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    }
+    if (prepay && (!rounds.length || !!table) && online) {
+      setPendingRound(round)
+      setPage('pay')
+      return
+    }
+    if (manualAcceptance && !rounds.length) setRequest({ status: 'waiting', round })
+    else acceptOrder(round)
+    setLines([])
+    setCoupon(null)
+    setCouponNotice(null)
+    // Post-pay submissions only create the round. Payment is a separate action
+    // from Order details, where the amount due is always the table bill remaining.
+    setPage('orders')
+  }
+
+  const resetSession = () => {
+    setRounds([])
+    setPayments([])
+    setLastPaidAmount(null)
+    setAnimateOrderSuccess(false)
+    setLines([])
+    setCoupon(null)
+    setCouponNotice(null)
+    setRequest(null)
+    setPendingRound(null)
+    setSettled(false)
+    setPaymentResult(null)
+    setContact({ name: '', phone: '' })
+    setOrderNote('')
+    setPage(null)
+    setEntered(!!table || storeCode)
+    scrollRef.current?.scrollTo({ top: 0 })
+  }
+
+  const darkStatus = entered && page === null
+  const categoryPillClass = (isActive: boolean) => `flex h-11 shrink-0 items-center rounded-full text-body whitespace-nowrap transition-colors ${isActive ? 'font-semibold text-brand' : 'text-muted'}`
+
+  return (
+    <div className="flex min-h-dvh items-center justify-center sm:pointer-fine:p-6">
+      <div id="ordering-frame" lang={langAttr} style={{ zoom: previewScale }} className="relative h-dvh w-full shrink-0 overflow-hidden bg-white sm:pointer-fine:h-[844px] sm:pointer-fine:w-[390px] sm:pointer-fine:rounded-device sm:pointer-fine:shadow-float">
+        <StatusBar dark={darkStatus} solid={barSolid && !page && entered} />
+
+        {!entered && (
+          <Welcome
+            lang={lang}
+            onLanguage={() => setSheet('language')}
+            onEnter={(m) => {
+              setMode(table ? 'dine' : m)
+              setEntered(true)
+            }}
+          />
+        )}
+
+        <div {...menuSwipe} ref={scrollRef} inert={!entered || page !== null} onScroll={onScroll} className={`no-scrollbar h-full overflow-y-auto ${count > 0 ? 'pb-28' : 'pb-6'}`}>
+          {(readonly || storeState === 'closed' || storeState === 'offline') && <div role="status" className="relative z-10 bg-pending-soft px-5 py-3 text-center text-callout font-medium text-pending">{storeState === 'closed' ? (lang === 'en' ? 'The store is closed and cannot take orders right now.' : '門店已打烊，暫不能下單') : storeState === 'offline' ? (lang === 'en' ? 'The store is offline and cannot take orders right now.' : '門店離線，暫不能下單') : (lang === 'en' ? 'Menu browsing only' : '僅供瀏覽菜單')}</div>}
+          {/* Hero */}
+          <header className="relative z-0 bg-brand-wash sm:pointer-fine:pt-11">
+              <div className="relative aspect-[16/9] overflow-hidden bg-tile">
+              <img src={HOME_HERO} fetchPriority="high" width={960} height={534} alt="麗華冰室港式茶餐廳" className="h-full w-full object-cover" />
+              {!table && <button type="button" aria-label={t(strings.backHome)} onClick={() => { setEntered(false); setActive('all'); scrollRef.current?.scrollTo({ top: 0 }) }} className="absolute top-3 left-3 grid size-11 place-items-center text-white drop-shadow-md sm:pointer-fine:top-14">
+                <ChevronLeft className="size-6" aria-hidden="true" />
+              </button>}
+              <div className="absolute top-3 right-4 flex h-11 items-center gap-0.5 rounded-full border border-white/20 bg-black/25 p-0.5 backdrop-blur-md">
+                <IconButton variant="image" label={t(strings.orders)} badge={rounds.length} onClick={() => setPage('orders')}>
+                  <ReceiptText className="size-4.5" />
+                </IconButton>
+                <span className="h-5 w-px shrink-0 bg-white/30" aria-hidden="true" />
+                <IconButton variant="image" label={t(strings.language)} onClick={() => setSheet('language')}>
+                  <Globe className="size-4.5" />
+                </IconButton>
+              </div>
+            </div>
+          </header>
+
+          {!table && <section className="relative z-10 bg-white px-5 pt-6 pb-1 max-[359px]:px-4">
+            <div className="relative flex min-h-10 items-center justify-between gap-2">
+              <h1 className="min-w-0 text-hero font-semibold tracking-[-0.02em]">{t(strings.restaurant)}</h1>
+              {!table && !rounds.length && request?.status !== 'waiting' && <div role="group" aria-label={t(strings.switchMode)} className="grid shrink-0 auto-cols-fr grid-flow-col items-center gap-2">
+                {([
+                  ['dine', strings.dineIn],
+                  ['takeaway', strings.takeaway],
+                ] as const).map(([value, label]) => (
+                  <OptionChip key={value} active={mode === value} onClick={() => setMode(value)} className="min-w-16 px-3">{t(label)}</OptionChip>
+                ))}
+              </div>}
+            </div>
+          </section>}
+
+          {table && (
+            <div className="mx-5 mt-3">
+              <div className="flex min-h-18 items-center justify-between gap-4 rounded-card bg-white p-4 shadow-soft">
+                <button type="button" onClick={() => setPage('member')} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left active:opacity-70">
+                  <img src={HOME_AVATAR} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-callout font-semibold">{memberLoggedIn && member ? member.name : lang === 'en' ? 'Welcome, please sign in' : '歡迎您，請登入'}</span>
+                    <span className="mt-1 block text-caption text-ink-2">{memberLoggedIn ? (lang === 'en' ? 'Member' : '初級會員') : (lang === 'en' ? 'Enjoy member benefits' : '加入即享會員專屬優惠')}</span>
+                  </span>
+                </button>
+                <button type="button" aria-label={lang === 'en' ? 'Switch table' : '更換桌台'} onClick={() => setToast(lang === 'en' ? 'Scan the QR code on your new table to switch tables.' : '請掃描新桌台上的二維碼以更換桌台')} className="flex min-h-11 shrink-0 items-center justify-end text-right text-ink active:opacity-70">
+                  <span className="text-headline font-semibold tabular-nums">{table}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Sticky category pills */}
+          <nav ref={categoryNavRef} aria-label={t(strings.categories)} className={`sticky top-0 z-20 mt-3 flex items-center bg-white px-5 py-1 transition-shadow sm:pointer-fine:top-11 ${categoryPinned ? 'shadow-divider' : ''}`}>
+            <div className="z-10 flex shrink-0 items-center bg-white pr-2">
+              <button type="button" aria-label={t(strings.search)} onClick={() => setPage('search')} className="-ml-2.5 grid size-11 shrink-0 place-items-center text-ink transition-opacity active:opacity-60">
+                <Search className="size-6" aria-hidden="true" />
+              </button>
+              <button type="button" aria-pressed={active === 'all'} aria-current={active === 'all' ? 'true' : undefined} onClick={() => scrollTo('all')} className={categoryPillClass(active === 'all')}><span className={`flex h-9 items-center rounded-full px-4 ${active === 'all' ? 'bg-brand-soft text-brand-strong' : ''}`}>{t(strings.all)}</span></button>
+            </div>
+            <div ref={categoryTabsRef} data-horizontal-scroll className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+              {categories.map((c) => (
+                <button key={c.id} type="button" aria-pressed={active === c.id} aria-current={active === c.id ? 'true' : undefined} onClick={() => scrollTo(c.id)} className={categoryPillClass(active === c.id)}><span className={`flex h-9 items-center rounded-full px-4 ${active === c.id ? 'bg-brand-soft text-brand-strong' : ''}`}>{t(c.name)}</span></button>
+              ))}
+            </div>
+          </nav>
+
+          {categories.map((c) => (
+            <section
+              key={c.id}
+              ref={(el) => {
+                sectionRefs.current[c.id] = el
+              }}
+              className="px-5 pt-2 max-[359px]:px-3"
+            >
+              <h2 className="mb-3 font-serif text-title font-bold">{t(c.name)}</h2>
+              <div className="grid grid-cols-2 gap-3 max-[359px]:gap-x-2">
+                {dishes
+                  .filter((d) => d.category === c.id)
+                  .map((d) => (
+                    <DishCard
+                      key={d.id}
+                      dish={d}
+                      lang={lang}
+                      qty={qtyByDish[d.id] ?? 0}
+                      ordered={orderedByDish[d.id] ?? 0}
+                      onOpen={() => setPage({ dish: d })}
+                      onAdd={() => quickAdd(d)}
+                    />
+                  ))}
+              </div>
+            </section>
+          ))}
+        </div>
+
+        {entered && !page && count > 0 && <CartBar count={count} total={quote.total / 100} lang={lang} bump={bump} onOpen={() => request?.status === 'waiting' ? setPage('orders') : setSheet('cart')} />}
+
+        {/* ---------- Full-screen pages ---------- */}
+        {page === 'search' && (
+          <SearchOverlay
+            lang={lang}
+            qtyOf={(id) => qtyByDish[id] ?? 0}
+            orderedOf={(id) => orderedByDish[id] ?? 0}
+            onClose={() => setPage(null)}
+            onOpen={(d) => setPage({ dish: d })}
+            onAdd={quickAdd}
+          />
+        )}
+
+        {page && typeof page === 'object' && (
+          <DishPage
+            key={page.dish.id}
+            dish={page.dish}
+            lang={lang}
+            ordered={orderedByDish[page.dish.id] ?? 0}
+            onClose={() => setPage(null)}
+            onAdd={(opts, note, qty) => {
+              if (!canOrder) { setToast(lockedMessage); setPage(null); return }
+              addLine(page.dish, opts, note, qty)
+              setPage(null)
+              setToast(t(strings.added))
+            }}
+          />
+        )}
+
+        {page === 'member' && <MemberPage lang={lang} member={member} loggedIn={memberLoggedIn} onRegister={(next) => { setMember(next); setMemberLoggedIn(true); setToast(lang === 'en' ? 'Membership ready' : '已成功加入會員') }} onLogout={() => setMemberLoggedIn(false)} onClose={() => setPage(null)} />}
+
+        <div className="contents" inert={paymentResult !== null || tablePaymentOpen}>
+          {(page === 'confirm' || (tablePaymentOpen && pendingRound)) && (
+            <ConfirmPage
+              lines={lines}
+              quote={pendingRound?.quote ?? reviewQuote ?? quote}
+              repriced={repriced}
+              mode={mode}
+              lang={lang}
+              isAddOn={rounds.length > 0}
+              previousRounds={rounds}
+              payments={payments}
+              contact={contact}
+              table={table}
+              setContact={setContact}
+              guests={guests}
+              setGuests={setGuests}
+              tablePrepay={!!table && prepay}
+              orderNote={orderNote}
+              setOrderNote={setOrderNote}
+              onAddMore={() => setPage(null)}
+              prepay={prepay && online}
+              setMode={(next) => { setMode(next); setReviewQuote(quoteCart(lines, { ...pricingOptions, mode: next })); setRepriced(false) }}
+              onBack={() => {
+                setPage(null)
+                setSheet('cart')
+              }}
+              onSubmit={submitOrder}
+            />
+          )}
+
+          {(page === 'orders' || (tablePaymentOpen && !pendingRound)) && (
+            <OrderDetail
+              rounds={rounds}
+              bill={request ? calculateBill([request.round], payments) : bill}
+              payments={payments}
+              animateSuccess={animateOrderSuccess}
+              lastPaidAmount={lastPaidAmount}
+              mode={rounds[0]?.mode ?? mode}
+              orderNo={ORDER_NO}
+              pickup={PICKUP}
+              receiptNo={RECEIPT_NO}
+              lang={lang}
+              status={request?.status ?? (rounds.length ? 'accepted' : null)}
+              table={table}
+              tablePrepay={!!table && prepay}
+              guests={guests}
+              orderNote={orderNote}
+              online={online}
+              canAddDishes={!!table && canOrder}
+              manualSettlement={manualSettlement}
+              settled={settled}
+              onSettle={() => setSettled(true)}
+              onAccept={() => {
+                if (request?.status === 'waiting') acceptOrder(request.round)
+              }}
+              onReject={() => {
+                if (request?.status === 'waiting') setRequest({ ...request, status: 'cancelled' })
+              }}
+              onClose={() => {
+                setLastPaidAmount(null)
+                setAnimateOrderSuccess(false)
+                setPage(null)
+              }}
+              onAddMore={() => {
+                if (!table || !canOrder) return
+                setLastPaidAmount(null)
+                setAnimateOrderSuccess(false)
+                setPage(null)
+              }}
+              onPay={() => {
+                if (!request && rounds.length && bill.remaining > 0) {
+                  setLastPaidAmount(null)
+                  setAnimateOrderSuccess(false)
+                  setPage('pay')
+                }
+              }}
+              onFinish={table ? () => setPage(null) : resetSession}
+            />
+          )}
+        </div>
+
+        {(paymentResult || (page === 'pay' && (pendingRound || bill.remaining > 0))) && (
+          <PaymentFlow
+            key={paymentAttempt}
+            resultSheet={paymentResult ? (
+              <PaymentResultSheet
+                result={paymentResult}
+                lang={lang}
+                orderNo={ORDER_NO}
+                onClose={() => {
+                  setPaymentResult(null)
+                  if (pendingRound) {
+                    setReviewQuote(pendingRound.quote)
+                    setRepriced(false)
+                    setPendingRound(null)
+                  }
+                }}
+                onRetry={paymentResult.kind !== 'success' && (pendingRound || bill.remaining > 0) ? () => {
+                  setPaymentResult(null)
+                  setPaymentAttempt((attempt) => attempt + 1)
+                  setPage('pay')
+                } : undefined}
+              />
+            ) : undefined}
+            balance={pendingRound ? pendingRound.quote.total / 100 : bill.remaining}
+            gateway={gateway || !!table}
+            direct={!!table}
+            directSessionKey={table ? paymentSessionKey : undefined}
+            onFailure={table ? (kind) => {
+              setPaymentResult({ kind })
+              setPage(pendingRound ? 'confirm' : 'orders')
+            } : undefined}
+            tipsEnabled={storeRules.tips}
+            orderNo={ORDER_NO}
+            lang={lang}
+            onBack={() => { if (pendingRound) { setPendingRound(null); setPage('confirm') } else setPage('orders') }}
+            onSuccess={(payment) => {
+              const principal = toCents(payment.amount) - payment.tip
+              const expected = pendingRound?.quote.total ?? toCents(bill.remaining)
+              if (payment.orderNo !== ORDER_NO || payment.tip < 0 || principal <= 0 || principal > expected || ((table || pendingRound) && principal !== expected)) return
+              setPayments((previous) => previous.some(({ id }) => id === payment.id) ? previous : [...previous, payment])
+              if (pendingRound) {
+                acceptOrder(pendingRound)
+                setPendingRound(null)
+                setLines([])
+                setCoupon(null)
+                setCouponNotice(null)
+              }
+              if (table) {
+                setPaymentResult({ kind: 'success', amount: payment.amount })
+                setPage('orders')
+              } else {
+                setSettled(true)
+                setLastPaidAmount(payment.amount)
+                setPage('orders')
+              }
+            }}
+          />
+        )}
+
+        {/* ---------- Sheets ---------- */}
+        {sheet === 'language' && (
+          <BottomSheet title={t(strings.language)} onClose={() => setSheet(null)}>
+            <div className="space-y-2">
+              {LANGS.map((l) => (
+                <ChoiceRow
+                  key={l.code}
+                  lang={l.attr}
+                  active={lang === l.code}
+                  leading={l.short}
+                  onClick={() => {
+                    setLang(l.code)
+                    setSheet(null)
+                  }}
+                >
+                  {l.name}
+                </ChoiceRow>
+              ))}
+            </div>
+          </BottomSheet>
+        )}
+
+        {sheet === 'cart' && (
+          <BottomSheet
+            title={t(strings.cart)}
+            titleAccessory={<span className={tagClass('brand')}>{mode === 'dine' ? <UtensilsCrossed className="size-3.5" /> : <ShoppingBag className="size-3.5" />}{mode === 'dine' ? t(strings.dineIn) : t(strings.takeaway)}</span>}
+            onClose={() => setSheet(null)}
+            headerActions={lines.length > 0 && (
+              <TextButton tone="muted" className="gap-1.5 rounded-full px-2.5 active:bg-tile" onClick={() => setLines([])}>
+                <Trash2 className="size-4" />
+                {t(strings.clear)}
+              </TextButton>
+            )}
+            footer={
+              lines.length > 0 && (
+                <div className="flex items-center gap-4">
+                  <div className="shrink-0">
+                    <p className="text-caption text-ink-2">{t(strings.total)}</p>
+                    <p className="text-title font-semibold tabular-nums">{money(quote.total / 100)}</p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setReviewQuote(quote)
+                      setRepriced(false)
+                      setSheet(null)
+                      setPage('confirm')
+                    }}
+                    className="flex-1"
+                  >
+                    {t(strings.continueOrder)}
+                  </Button>
+                </div>
+              )
+            }
+          >
+            {lines.length === 0 ? (
+              <Empty title={t(strings.emptyCart)} />
+            ) : (
+              <>
+                <ul className="space-y-3">
+                  {lines.map((l) => (
+                    <CartRow key={l.key} line={l} lang={lang} amount={quote.rows[l.key]}>
+                      <Stepper qty={l.qty} onMinus={() => changeLine(l.key, -1)} onPlus={() => changeLine(l.key, 1)} />
+                    </CartRow>
+                  ))}
+                </ul>
+                <div className="mt-4 border-t border-line pt-4">
+                  <FeeRows quote={quote} lang={lang} />
+                </div>
+              </>
+            )}
+          </BottomSheet>
+        )}
+
+        {sheet === 'categories' && (
+          <BottomSheet title={t(strings.categories)} onClose={() => setSheet(null)}>
+            <ul className="divide-y divide-line">
+              {categories.map((c) => (
+                <li key={c.id}>
+                  <button
+                    onClick={() => {
+                      setSheet(null)
+                      setTimeout(() => scrollTo(c.id), 50)
+                    }}
+                    className="flex w-full items-center gap-3 py-3 text-left"
+                  >
+                    <Thumb src={c.thumb} />
+                    <span className="min-w-0 flex-1 text-body font-medium">{t(c.name)}</span>
+                    <ChevronRight className="size-4 text-muted" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </BottomSheet>
+        )}
+
+        {toast && (
+          <div className="animate-pop absolute inset-x-0 top-14 z-[60] flex justify-center px-5">
+            <div className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-callout text-white shadow-float">
+              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand">
+                <Check className="size-3" strokeWidth={3} />
+              </span>
+              {toast}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function StatusBar({ dark, solid }: { dark: boolean; solid: boolean }) {
+  return (
+    <div
+      className={`pointer-events-none absolute inset-x-0 top-0 z-[55] hidden h-11 items-center justify-between px-8 pt-1 font-sans text-body font-semibold transition-colors duration-200 sm:pointer-fine:flex ${
+        dark ? 'text-ink' : 'text-white'
+      } ${solid ? 'bg-white' : ''}`}
+    >
+      <span>9:41</span>
+      <span className="flex items-center gap-1.5">
+        <Signal className="size-4" strokeWidth={2.5} />
+        <Wifi className="size-4" strokeWidth={2.5} />
+        <span className="relative flex h-3 w-6 items-center rounded-[4px] border-[1.5px] border-current p-[1.5px] opacity-90">
+          <span className="h-full w-[75%] rounded-[1.5px] bg-current" />
+        </span>
+      </span>
+    </div>
+  )
+}
+
