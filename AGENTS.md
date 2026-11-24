@@ -29,27 +29,64 @@ dev-notes/      组件盘点等文档（会影响构建，见 §5）
 
 ## 2. 改动流程
 
+**不要直接在 main 上改。** main 只接受合并，每一件事都从 main 拉一个新分支。
+
 ```bash
 cd /Users/yanghao/Desktop/桌码1.2-仓库
 
-# 1. 只改 src/ 和 public/
+# 1. 从最新 main 拉分支（分支名说明这件事做什么）
+git checkout main
+git pull origin main
+git checkout -b feat/order-success-toast
 
-# 2. 类型检查
+# 2. 只改 src/ 和 public/
+
+# 3. 类型检查
 npx tsc --noEmit
 
-# 3. 构建（必须带 FIGMA_PUBLIC_URL，否则资源路径会错）
+# 4. 构建（必须带 FIGMA_PUBLIC_URL，否则资源路径会错）
 FIGMA_PUBLIC_URL=/table-ordering-demo pnpm build
 
-# 4. 本地预览核对
+# 5. 本地预览核对
 npx vite preview --outDir docs
 
-# 5. 确认无误后再提交
+# 6. 提交到分支（源码 + 产物一起，保持一一对应）
 git add -A
-git commit -m "说明这次改了什么"
+git commit -m "feat: 下单成功提示"
+git push -u origin feat/order-success-toast
+
+# 7. 自测通过后再合并回 main
+git checkout main
+git pull origin main
+git merge --no-ff feat/order-success-toast
 git push origin main
 ```
 
 `docs/` 会随构建整体重写，和源码在同一个 commit 里，一一对应。
+
+### 分支命名
+
+```
+feat/xxx     新功能或交互改动
+fix/xxx      修 bug
+style/xxx    只改视觉，不动逻辑
+docs/xxx     只改文档
+```
+
+### 两条必须知道的约束
+
+1. **只有 main 会部署。** 分支推上去线上不会变，分支上的改动只能在本地 `vite preview` 看。
+2. **`docs/` 冲突不要手工合并。** 产物文件名带 hash，两个分支同时改一定冲突。
+   正确做法：合并时如果 `docs/` 报冲突，直接放弃这一侧，在合并后的源码上重新构建覆盖：
+
+```bash
+git checkout --ours docs/        # 或先 git merge --abort 再重来
+FIGMA_PUBLIC_URL=/table-ordering-demo pnpm build
+git add docs/
+git commit
+```
+
+**永远不要去手改 `docs/assets/*.js` 解决冲突。**
 
 ## 3. 硬规则
 
@@ -60,6 +97,8 @@ git push origin main
 5. **不要擅自改视觉**（间距、字号、颜色、圆角、组件结构）。视觉改动必须指定基准版本。
 6. 改完必须给验证证据（hash / 截图），不能只说「改好了」。
 7. 一次只推进一个决定或一个页面，不要顺手重做别的地方。
+8. **不要直接在 main 上改。** 每件事拉一个新分支，自测通过再合并回 main。
+9. **不要在分支上手工合并 `docs/`。** 冲突就重新构建覆盖，禁止手改产物。
 
 ## 4. 验收标准
 
@@ -118,6 +157,7 @@ gh api repos/wanghyook-bit/table-ordering-demo/pages/builds --jq '.[0].status'
 | 2026-11-24 | 删文档后 CSS 少一个 token | Tailwind 扫描 md 里的字样 | 清文档前构建对比 hash |
 | 2026-11-24 | Pages 改配置后线上仍是旧内容 | 改配置不触发新构建 | 手动 POST `pages/builds` |
 | 2026-11-24 | 源码无法回溯 | 历史仓库只提交产物 | 源码入库，产物进 `docs/` |
+| 2026-11-24 | 全部改动堆在 main，出问题难回退 | 没有分支习惯 | 一事项一分支，合并前自测 |
 
 ## 8. 技术栈
 
