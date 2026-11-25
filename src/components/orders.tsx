@@ -47,30 +47,14 @@ export const countLabel = (count: number, lang: Lang) => (lang === 'en' ? `${cou
 
 /** Read-only item rows (thumb · name · per-dish status · options · price · qty) shared by confirm, order detail and payment. */
 export function ItemList({ lines, lang, amounts, status }: { lines: CartLine[]; lang: Lang; amounts: Record<string, number>; status?: 'pending' | 'ordered' }) {
-  const statusTag = status === 'pending'
-    ? <Tag compact tone="pending">{lang === 'en' ? 'Not ordered' : '未下單'}</Tag>
-    : status === 'ordered' ? <Tag compact tone="success">{lang === 'en' ? 'Ordered' : '已下單'}</Tag> : null
-  return (
-    <ul className="space-y-3">
-      {lines.map((l) => {
-        const label = optsLabel(l.opts, l.note, lang)
-        return (
-          <li key={l.key} className="flex items-start gap-3">
-            <DishImage src={l.dish.image} alt={l.dish.name[lang]} className="size-16 shrink-0 rounded-lg" />
-            <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1">
-              <div className="col-start-1 row-start-1 min-w-0">
-                <p className="text-body font-semibold">{l.dish.name[lang]}</p>
-                {statusTag && <div className="mt-1">{statusTag}</div>}
-              </div>
-              <Price value={amounts[l.key] / 100} className="text-right text-headline font-semibold whitespace-nowrap" />
-              {label && <p className="col-start-1 row-start-2 text-callout text-ink-2">{label}</p>}
-              <p className="col-start-2 row-start-2 text-right text-callout text-ink-2 tabular-nums">×{l.qty}</p>
-            </div>
-          </li>
-        )
-      })}
-    </ul>
-  )
+  return <ul className="confirm-items">{lines.map((line) => {
+    const options = optsLabel(line.opts, line.note, lang)
+    return <li key={line.key} className="confirm-item">
+      <DishImage src={line.dish.image} alt={line.dish.name[lang]} className="confirm-item-image" />
+      <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status ${status}`}>{status === 'ordered' ? (lang === 'en' ? 'Ordered' : '已下單') : (lang === 'en' ? 'Not ordered' : '未下單')}</span>}<strong>{line.dish.name[lang]}</strong></div>
+        {options && <p className="confirm-options">{options}</p>}<div className="confirm-item-bottom"><span>×{line.qty}</span><strong>{money((amounts[line.key] ?? 0) / 100)}</strong></div></div>
+    </li>
+  })}</ul>
 }
 
 /**
@@ -153,21 +137,21 @@ export function OrderDetail({
     const description = completed ? undefined : allPaid ? t(strings.merchantAccepted) : (lang === 'en' ? 'Please complete payment' : '請完成支付')
     const showPay = online && remaining > 0
     return (
-    <Page title={lang === 'en' ? 'Order details' : '訂單詳情'} onBack={onClose} footer={(canAddDishes || showPay) && (
-      showPay ? <ActionBar label={t(strings.balanceDue)} total={remaining}>
-        {canAddDishes && <Button variant={showPay ? 'secondary' : 'primary'} onClick={onAddMore} className="flex-1">{t(strings.addDishes)}</Button>}
-        {showPay && <Button onClick={onPay} className="flex-1">{t(strings.pay)}</Button>}
-      </ActionBar> : <Button onClick={onAddMore} className="w-full">{t(strings.addDishes)}</Button>
+    <Page className="order-design" title={lang === 'en' ? 'Order details' : '訂單詳情'} onBack={onClose} footer={(canAddDishes || showPay || allPaid) && (
+      <div className="confirm-actions">
+        {canAddDishes && <Button variant="secondary" onClick={onAddMore} className="flex-1">{t(strings.addDishes)}</Button>}
+        {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid} className="flex-1">{t(strings.pay)}</Button>}
+      </div>
     )}>
       <Section>
-        <StatusPanel variant="row" tone={allPaid ? 'success' : 'pending'} icon={allPaid ? <Check className="size-5" aria-hidden="true" /> : <Clock className="size-5" aria-hidden="true" />} title={title} description={description} />
-        <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode="dine" guests={guests} lang={lang} /></div>
+        {allPaid ? <div className="order-success"><img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} alt="" /><strong>{lang === 'en' ? 'Payment successful' : '付款成功'}</strong></div> : <StatusPanel variant="row" tone="pending" icon={<Clock className="size-5" aria-hidden="true" />} title={title} description={description} />}
+        {!allPaid && <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode="dine" guests={guests} lang={lang} /></div>}
       </Section>
       <Section
         title={lang === 'en' ? 'Items' : '餐品詳情'}
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(rounds.reduce((sum, round) => sum + itemCount(round.lines), 0), lang)}</span>}
       >
-        <div className="space-y-5">
+        <div className="confirm-item-groups">
           {rounds.map((round, index) => (
             <RoundGroup
               key={round.id}
@@ -176,24 +160,21 @@ export function OrderDetail({
               lang={lang}
               amounts={round.quote.rows}
               status="ordered"
+              showRound={false}
             />
           ))}
         </div>
       </Section>
       <Section title={lang === 'en' ? 'Amount details' : '金額明細'}>
-        <FeeRows quote={bill.quote} tip={bill.tip} lang={lang} totalLabel={t(strings.billTotal)} />
-        <dl className="mt-3 space-y-2 border-t border-line pt-3">
-          <Row k={t(strings.confirmedPaid)} v={money(paid)} />
-          <Row k={t(strings.balanceDue)} v={money(remaining)} strong />
-        </dl>
-        {payments.length > 0 && (
-          <TextButton weight="medium" className="mt-2 gap-1" onClick={() => setHistoryOpen(true)}>
-            {t(strings.viewPayments)} <ChevronRight className="size-4" aria-hidden="true" />
-          </TextButton>
-        )}
+        <OrderAmounts quote={bill.quote} tip={bill.tip} total={total} paid={paid} remaining={remaining} lang={lang} onPaymentHistory={payments.length ? () => setHistoryOpen(true) : undefined} />
       </Section>
       <Section title={lang === 'en' ? 'Order information' : '訂單資訊'}>
-        <dl className="space-y-2"><Row k={lang === 'en' ? 'Order number' : '訂單號'} v={`#${orderNo}`} />{orderNote && <Row k={lang === 'en' ? 'Order note' : '訂單備註'} v={orderNote} />}</dl>
+        <dl className="order-information">
+          <Row k={lang === 'en' ? 'Order number' : '訂單號'} v={`#${orderNo}`} />
+          {rounds[0]?.time && <Row k={lang === 'en' ? 'Order time' : '下單時間'} v={rounds[0].time} />}
+          {allPaid && <Row k={lang === 'en' ? 'Table' : '桌台'} v={table} />}
+          {orderNote && <Row k={lang === 'en' ? 'Order note' : '訂單備註'} v={orderNote} />}
+        </dl>
         {manualSettlement && allPaid && !settled && <TextButton tone="muted" underline className="mt-3" onClick={onSettle}>{lang === 'en' ? 'Simulate staff settlement' : '模擬店員結算'}</TextButton>}
       </Section>
       {historyOpen && (
@@ -207,6 +188,7 @@ export function OrderDetail({
 
   return (
     <Page
+      className="order-design"
       title={t(strings.orders)}
       onBack={onClose}
       footer={
@@ -349,6 +331,23 @@ export function OrderDetail({
       )}
     </Page>
   )
+}
+
+export function OrderAmounts({ quote, tip = 0, total, paid, remaining, lang, onPaymentHistory }: { quote: Pick<PriceQuote, 'subtotal' | 'service' | 'packaging' | 'savings' | 'total'>; tip?: number; total: number; paid?: number; remaining: number; lang: Lang; onPaymentHistory?: () => void }) {
+  return <dl className="order-amounts">
+    <div className="order-amount-breakdown">
+      <Row k={lang === 'en' ? 'Items total' : lang === 'zh' ? '商品总额' : '商品總額'} v={money(quote.subtotal / 100)} />
+      {quote.service > 0 && <Row k={strings.service[lang]} v={money(quote.service / 100)} />}
+      {quote.packaging > 0 && <Row k={strings.packagingFee[lang]} v={money(quote.packaging / 100)} />}
+      {tip > 0 && <Row k={strings.tip[lang]} v={money(tip / 100)} />}
+      {quote.savings.map((saving) => <Row key={saving.key} k={saving.name[lang]} v={saving.included ? `${feeText.save[lang]} ${money(saving.cents / 100)} · ${feeText.included[lang]}` : `−${money(saving.cents / 100)}`} />)}
+    </div>
+    <div className="order-amount-summary">
+      <Row k={strings.billTotal[lang]} v={money(total)} strong />
+      {paid !== undefined && <Row k={onPaymentHistory ? <button type="button" onClick={onPaymentHistory} className="inline-flex items-center gap-1">{strings.confirmedPaid[lang]} <ChevronRight size={16} /></button> : strings.confirmedPaid[lang]} v={money(paid)} strong />}
+      <Row k={strings.balanceDue[lang]} v={<span className="text-[#ff7a30]">{money(remaining)}</span>} strong />
+    </div>
+  </dl>
 }
 
 function PaymentHistory({ payments, lang }: { payments: PaymentRecord[]; lang: Lang }) {

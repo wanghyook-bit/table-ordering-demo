@@ -164,6 +164,7 @@ export function PaymentFlow({
 
   return (
     <Page
+      className="payment-design"
       title={t(strings.confirmPaymentTitle)}
       onBack={polling ? undefined : onBack}
       footer={

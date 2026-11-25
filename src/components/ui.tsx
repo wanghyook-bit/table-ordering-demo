@@ -430,10 +430,10 @@ export function Empty({ title }: { title: string }) {
 /* ---------- Page scaffolding (confirm · order detail · payment) ---------- */
 
 /** Full-screen page: back + title header, scrollable body of <Section>s, optional action footer. */
-export function Page({ title, onBack, footer, children }: { title: string; onBack?: () => void; footer?: ReactNode; children: ReactNode }) {
+export function Page({ title, onBack, footer, children, className = "" }: { title: string; onBack?: () => void; footer?: ReactNode; children: ReactNode; className?: string }) {
   const swipe = useBackSwipe(onBack, !onBack)
   return (
-    <div {...swipe} className="animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-tile">
+    <div {...swipe} className={`animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-tile ${className}`}>
       <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-line bg-white px-3 pt-2 pb-2 shadow-divider sm:pointer-fine:pt-11">
         {onBack ? <BackButton onClick={onBack} /> : <span className="size-11 shrink-0" />}
         <h1 className="text-headline font-semibold">{title}</h1>
