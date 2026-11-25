@@ -114,7 +114,7 @@ export default function App() {
   const [paymentAttempt, setPaymentAttempt] = useState(0)
   const [paymentResult, setPaymentResult] = useState<TablePaymentResult | null>(savedSession?.paymentResult ?? null)
   const [sheet, setSheet] = useState<Sheet>(null)
-  const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.pendingRound || savedSession?.tablePaymentOpen ? 'pay' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
+  const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.tablePaymentOpen ? 'pay' : savedSession?.pendingRound ? 'confirm' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
   const [toast, setToast] = useState<string | null>(null)
   const [detailFromList, setDetailFromList] = useState(false)
   const [active, setActive] = useState('all')
@@ -263,8 +263,8 @@ export default function App() {
     }
     if (prepay && (!rounds.length || !!table) && online) {
       setPendingRound(round)
-      if (table) setPrepayExpiresAt(Date.now() + 15 * 60 * 1000)
-      setPage('pay')
+      if (table) { setPrepayExpiresAt(Date.now() + 15 * 60 * 1000); setPage('confirm') }
+      else setPage('pay')
       return
     }
     if (manualAcceptance && !rounds.length) setRequest({ status: 'waiting', round })
@@ -447,6 +447,7 @@ export default function App() {
             <ConfirmPage
               lines={lines}
               expiresAt={pendingRound ? prepayExpiresAt : null}
+              onCancelPayment={() => { setPaymentResult({ kind: 'cancelled' }); setPage('confirm') }}
               quote={pendingRound?.quote ?? reviewQuote ?? quote}
               repriced={repriced}
               mode={mode}
@@ -467,6 +468,7 @@ export default function App() {
               prepay={prepay && online}
               setMode={(next) => { setMode(next); setReviewQuote(quoteCart(lines, { ...pricingOptions, mode: next })); setRepriced(false) }}
               onBack={() => {
+                if (pendingRound && prepayExpiresAt) return
                 setPage(null)
                 setSheet('cart')
               }}

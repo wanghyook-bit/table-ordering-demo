@@ -257,3 +257,8 @@
 .my-orders-total strong { font-size:17px; color:var(--color-ink); }
 .my-orders-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:20px; }
 .my-orders-actions button { min-height:44px; min-width:112px; }
+
+.confirm-countdown { padding:12px 20px 0; }
+.countdown-banner { display:flex; align-items:center; justify-content:center; gap:6px; border:1px solid #ffd7bf; border-radius:16px; background:#fff7f2; padding:12px; color:#4a4f58; font-size:14px; font-weight:600; }
+.countdown-banner strong { color:#ff7a30; font-size:20px; line-height:24px; font-variant-numeric:tabular-nums; }
+.confirm-actions .cancel-payment { border:1px solid #ff7a30; color:#ff7a30; background:#fff !important; }

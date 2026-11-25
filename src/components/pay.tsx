@@ -398,10 +398,12 @@ function ThirdPartyPage({
   )
 }
 
-export function PaymentCountdown({ expiresAt, lang }: { expiresAt: number; lang: Lang }) {
+export function PaymentCountdown({ expiresAt, lang, variant = 'standard' }: { expiresAt: number; lang: Lang; variant?: 'standard' | 'inline' | 'banner' }) {
   const [now, setNow] = useState(Date.now())
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [])
   const seconds = Math.max(0, Math.ceil((expiresAt - now) / 1000))
   const time = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+  if (variant === 'inline') return <span className="tabular-nums">{time}</span>
+  if (variant === 'banner') return <div className="countdown-banner"><strong>{time}</strong><span>{lang === 'en' ? 'until the payment session expires' : lang === 'zh' ? '后支付会话失效' : '後支付會話失效'}</span></div>
   return <p className="mt-3 text-callout text-ink-2 tabular-nums">{lang === 'en' ? 'Time left to pay' : lang === 'zh' ? '支付剩余时间' : '支付剩餘時間'} {time}</p>
 }
