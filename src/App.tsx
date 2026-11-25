@@ -449,6 +449,7 @@ export default function App() {
               tablePrepay={!!table && prepay}
               orderNote={orderNote}
               setOrderNote={setOrderNote}
+              onSwitchTable={() => setToast(lang === 'en' ? 'Scan the QR code on your new table to switch tables.' : '請掃描新桌台上的二維碼以更換桌台')}
               onAddMore={() => setPage(null)}
               prepay={prepay && online}
               setMode={(next) => { setMode(next); setReviewQuote(quoteCart(lines, { ...pricingOptions, mode: next })); setRepriced(false) }}

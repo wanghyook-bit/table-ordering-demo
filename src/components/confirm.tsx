@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { strings, type L10n, type Lang } from '../data'
-import type { CartLine } from '../cart'
+import { optsLabel, type CartLine } from '../cart'
 import type { PriceQuote } from '../pricing'
 import type { Mode } from './Welcome'
 import { RoundGroup, calculateBill, countLabel, itemCount, type Round, type PaymentRecord } from './orders'
 import { StoreCard } from './store'
-import { ActionBar, Button, InlineAlert, OptionChip, Page, Row, Section, TableIdentity, TextButton, fieldClass, money, textareaClass } from './ui'
+import { ActionBar, Button, DishImage, InlineAlert, OptionChip, Page, Row, Section, TextButton, fieldClass, money, textareaClass } from './ui'
 import { FeeRows, feeText } from './pricing'
 
 export type Contact = { name: string; phone: string }
@@ -32,6 +32,7 @@ export function ConfirmPage({
   setGuests,
   tablePrepay, onAddMore, orderNote, setOrderNote,
   onBack,
+  onSwitchTable,
   onSubmit,
 }: {
   lines: CartLine[]
@@ -54,6 +55,7 @@ export function ConfirmPage({
   orderNote: string
   setOrderNote: (s: string) => void
   onBack: () => void
+  onSwitchTable: () => void
   onSubmit: () => void
 }) {
   const t = (s: L10n) => s[lang]
@@ -63,18 +65,16 @@ export function ConfirmPage({
 
   return (
     <Page
+      className="confirm-design"
       title={isAddOn ? t(strings.confirmAddTitle) : t(strings.confirmTitle)}
       onBack={onBack}
       footer={
         <>
           {repriced && <InlineAlert tone="pending" title={t(feeText.reprice)} className="mb-2" />}
-          <ActionBar
-            label={t(combined ? strings.balanceDue : strings.total)}
-            total={combined ? combined.remaining : quote.total / 100}
-          >
+          <div className="confirm-actions">
             {table && <Button variant="secondary" onClick={onAddMore} className="flex-1">{lang === 'en' ? 'Add dishes' : '加菜'}</Button>}
             <Button onClick={onSubmit} disabled={!valid} className="flex-1">{prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}</Button>
-          </ActionBar>
+          </div>
         </>
       }
     >
@@ -86,7 +86,7 @@ export function ConfirmPage({
 
       {table ? (
         <Section>
-          <TableIdentity table={table} mode="dine" guests={guests} lang={lang} />
+          <div className="confirm-table"><div className="confirm-table-name"><span className="confirm-table-icon"><img src={`${import.meta.env.BASE_URL}confirm-assets/table.svg`} alt="" /></span><strong>{table}</strong></div><Button size="md" onClick={onSwitchTable}>{lang === 'en' ? 'Switch table' : '更換桌台'}</Button></div>
         </Section>
       ) : !isAddOn ? (
         <>
@@ -114,25 +114,11 @@ export function ConfirmPage({
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(itemCount(lines) + (table ? previousRounds.reduce((sum, round) => sum + itemCount(round.lines), 0) : 0), lang)}</span>}
       >
         <div className="space-y-5">
-          {table && previousRounds.map((round, index) => (
-            <RoundGroup
-              key={round.id}
-              index={index + 1}
-              lines={round.lines}
-              lang={lang}
-              amounts={round.quote.rows}
-              status="ordered"
-            />
+          {table && previousRounds.map((round) => (
+            <ConfirmItems key={round.id} lines={round.lines} lang={lang} amounts={round.quote.rows} status="ordered" />
           ))}
           <div>
-            <RoundGroup
-              index={previousRounds.length + 1}
-              lines={expanded ? lines : lines.slice(0, 3)}
-              lang={lang}
-              amounts={quote.rows}
-              status={table && previousRounds.length ? 'pending' : undefined}
-              showRound={!!table && previousRounds.length > 0}
-            />
+            <ConfirmItems lines={expanded ? lines : lines.slice(0, 3)} lang={lang} amounts={quote.rows} status={table && previousRounds.length ? 'pending' : undefined} />
             {lines.length > 3 && <TextButton tone="muted" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="mt-2 w-full justify-center gap-1">{expanded ? (lang === 'en' ? 'Show less' : '收起') : (lang === 'en' ? 'View more items' : '展開查看更多菜品')}{expanded ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}</TextButton>}
           </div>
         </div>
@@ -154,6 +140,17 @@ export function ConfirmPage({
       {table && <Section title={lang === 'en' ? 'Order note' : '訂單備註'}><textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)} rows={2} placeholder={lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求'} className={textareaClass} /></Section>}
     </Page>
   )
+}
+
+function ConfirmItems({ lines, lang, amounts, status }: { lines: CartLine[]; lang: Lang; amounts: Record<string, number>; status?: 'pending' | 'ordered' }) {
+  return <ul className="confirm-items">{lines.map((line) => {
+    const options = optsLabel(line.opts, line.note, lang)
+    return <li key={line.key} className="confirm-item">
+      <DishImage src={line.dish.image} alt={line.dish.name[lang]} className="confirm-item-image" />
+      <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status ${status}`}>{status === 'ordered' ? (lang === 'en' ? 'Ordered' : '已下單') : (lang === 'en' ? 'Not ordered' : '未下單')}</span>}<strong>{line.dish.name[lang]}</strong></div>
+        {options && <p className="confirm-options">{options}</p>}<div className="confirm-item-bottom"><span>×{line.qty}</span><strong>{money((amounts[line.key] ?? 0) / 100)}</strong></div></div>
+    </li>
+  })}</ul>
 }
 
 function Field({
