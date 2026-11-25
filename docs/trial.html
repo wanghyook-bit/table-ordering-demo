@@ -14,7 +14,8 @@ for (const mode of ['post', 'pre']) {
   const key = `table-trial-last:${code}:${mode}`;
   const suffix = mode === 'pre' ? '&payment=prepay' : '';
   const choice = document.querySelector('#' + mode);
-  const previous = sessionStorage.getItem(key);
+  const trialStore = code === 'table' && mode === 'pre' ? localStorage : sessionStorage;
+  const previous = trialStore.getItem(key);
   const resume = document.querySelector('#' + mode + '-resume');
   if (previous) { resume.href = previous; resume.hidden = false; }
   choice.href = base + suffix;
@@ -22,7 +23,7 @@ for (const mode of ['post', 'pre']) {
     event.preventDefault();
     const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const destination = base + suffix + '&session=' + encodeURIComponent(id);
-    sessionStorage.setItem(key, destination);
+    trialStore.setItem(key, destination);
     location.href = destination;
   });
 }

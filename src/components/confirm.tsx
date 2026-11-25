@@ -8,6 +8,7 @@ import { ItemList, OrderAmounts, calculateBill, countLabel, itemCount, type Roun
 import { StoreCard } from './store'
 import { Button, InlineAlert, OptionChip, Page, Row, Section, TextButton, fieldClass, money, textareaClass } from './ui'
 import { FeeRows, feeText } from './pricing'
+import { PaymentCountdown } from './pay'
 
 export type Contact = { name: string; phone: string }
 
@@ -17,6 +18,7 @@ export function hasValidOrderContact(mode: Mode, contact: Contact) {
 
 export function ConfirmPage({
   lines,
+  expiresAt,
   quote,
   repriced,
   mode,
@@ -36,6 +38,7 @@ export function ConfirmPage({
   onSubmit,
 }: {
   lines: CartLine[]
+  expiresAt?: number | null
   quote: PriceQuote
   repriced: boolean
   mode: Mode
@@ -71,6 +74,7 @@ export function ConfirmPage({
       onBack={onBack}
       footer={
         <>
+          {expiresAt && <PaymentCountdown expiresAt={expiresAt} lang={lang} />}
           {repriced && <InlineAlert tone="pending" title={t(feeText.reprice)} className="mb-2" />}
           <div className="confirm-actions">
             {table && <Button variant="secondary" onClick={onAddMore} className="flex-1">{lang === 'en' ? 'Add dishes' : '加菜'}</Button>}

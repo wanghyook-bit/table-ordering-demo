@@ -44,9 +44,10 @@ const canOrder = !readonly && storeState !== 'closed' && storeState !== 'offline
 const manualSettlement = entry.get('settlement') === 'manual'
 const sessionKey = `ordering-a3:${window.location.search}`
 const paymentSessionKey = `${sessionKey}:payment`
+const sessionStore = table && prepay ? localStorage : sessionStorage
 function restoreSession() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(sessionKey) || 'null')
+    const saved = JSON.parse(sessionStore.getItem(sessionKey) || 'null')
     return saved ? { ...saved, payments: (saved.payments ?? []).map((payment: PaymentRecord) => ({ ...payment, paidAt: new Date(payment.paidAt) })) } : null
   } catch { return null }
 }
@@ -109,6 +110,7 @@ export default function App() {
   const [orderNote, setOrderNote] = useState(savedSession?.orderNote ?? '')
   const [settled, setSettled] = useState(savedSession?.settled ?? false)
   const [pendingRound, setPendingRound] = useState<Round | null>(savedSession?.pendingRound ?? null)
+  const [prepayExpiresAt, setPrepayExpiresAt] = useState<number | null>(savedSession?.prepayExpiresAt ?? null)
   const [paymentAttempt, setPaymentAttempt] = useState(0)
   const [paymentResult, setPaymentResult] = useState<TablePaymentResult | null>(savedSession?.paymentResult ?? null)
   const [sheet, setSheet] = useState<Sheet>(null)
@@ -131,9 +133,15 @@ export default function App() {
 
   const tablePaymentOpen = !!table && page === 'pay'
   useEffect(() => {
-    sessionStorage.setItem(sessionKey, JSON.stringify({ entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen }))
-    if (paymentResult) sessionStorage.removeItem(paymentSessionKey)
-  }, [entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen])
+    sessionStore.setItem(sessionKey, JSON.stringify({ entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt }))
+    if (paymentResult) sessionStore.removeItem(paymentSessionKey)
+  }, [entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt])
+
+  useEffect(() => {
+    if (!pendingRound || !prepayExpiresAt || (page === 'pay' && !paymentResult) || paymentResult?.kind === 'expired' || paymentResult?.kind === 'success' || paymentResult?.kind === 'cancelled') return
+    const tick = () => { if (Date.now() >= prepayExpiresAt) { setPaymentResult({ kind: 'expired' }); setPage('confirm') } }
+    tick(); const timer = setInterval(tick, 1000); return () => clearInterval(timer)
+  }, [pendingRound, prepayExpiresAt, page, paymentResult])
 
   const count = lines.reduce((s, l) => s + l.qty, 0)
   const pricingOptions: QuoteOptions = { mode, coupon: null, addOn: rounds.length > 0, packagingCents }
@@ -235,6 +243,7 @@ export default function App() {
   }
 
   const submitOrder = () => {
+    if (pendingRound && prepayExpiresAt && Date.now() < prepayExpiresAt) { setPaymentResult(null); setPaymentAttempt(v => v + 1); setPage('pay'); return }
     if (!lines.length || pendingRound || request?.status === 'waiting' || !canOrder) return
     if (!hasValidOrderContact(mode, contact)) return
     const latestPackaging = entry.get('reprice') === '1' && quote.packaging > 0 ? storeRules.packagingCents + 100 : packagingCents
@@ -254,6 +263,7 @@ export default function App() {
     }
     if (prepay && (!rounds.length || !!table) && online) {
       setPendingRound(round)
+      if (table) setPrepayExpiresAt(Date.now() + 15 * 60 * 1000)
       setPage('pay')
       return
     }
@@ -436,6 +446,7 @@ export default function App() {
           {(page === 'confirm' || (tablePaymentOpen && pendingRound)) && (
             <ConfirmPage
               lines={lines}
+              expiresAt={pendingRound ? prepayExpiresAt : null}
               quote={pendingRound?.quote ?? reviewQuote ?? quote}
               repriced={repriced}
               mode={mode}
@@ -524,29 +535,30 @@ export default function App() {
             resultSheet={paymentResult ? (
               <PaymentResultSheet
                 result={paymentResult}
+                expiresAt={pendingRound ? prepayExpiresAt : null}
+                cancelledOrder={paymentResult.kind === 'cancelled' && !!pendingRound && !!table}
                 lang={lang}
                 orderNo={ORDER_NO}
                 onClose={() => {
                   setPaymentResult(null)
-                  if (pendingRound) {
-                    setReviewQuote(pendingRound.quote)
-                    setRepriced(false)
-                    setPendingRound(null)
-                  }
+                  if (paymentResult.kind === 'expired' || (paymentResult.kind === 'cancelled' && pendingRound && table)) { setPendingRound(null); setPrepayExpiresAt(null); setLines([]); setReviewQuote(null); setPage(null) }
                 }}
-                onRetry={paymentResult.kind !== 'success' && (pendingRound || bill.remaining > 0) ? () => {
+                onRetry={paymentResult.kind !== 'success' && paymentResult.kind !== 'expired' && !(paymentResult.kind === 'cancelled' && pendingRound && table) && (pendingRound || bill.remaining > 0) && (!prepayExpiresAt || Date.now() < prepayExpiresAt) ? () => {
                   setPaymentResult(null)
                   setPaymentAttempt((attempt) => attempt + 1)
                   setPage('pay')
                 } : undefined}
               />
             ) : undefined}
+            expiresAt={pendingRound ? prepayExpiresAt : null}
+            onExpired={() => { setPaymentResult({ kind: 'expired' }); setPage('confirm') }}
             balance={pendingRound ? pendingRound.quote.total / 100 : bill.remaining}
             gateway={gateway || !!table}
             direct={!!table}
             directSessionKey={table ? paymentSessionKey : undefined}
+            persistentAttempt={!!table && prepay}
             onFailure={table ? (kind) => {
-              setPaymentResult({ kind })
+              setPaymentResult(prepayExpiresAt && Date.now() >= prepayExpiresAt && pendingRound ? { kind: 'expired' } : { kind })
               setPage(pendingRound ? 'confirm' : 'orders')
             } : undefined}
             tipsEnabled={storeRules.tips}
@@ -561,6 +573,7 @@ export default function App() {
               if (pendingRound) {
                 acceptOrder(pendingRound)
                 setPendingRound(null)
+                setPrepayExpiresAt(null)
                 setLines([])
                 setCoupon(null)
                 setCouponNotice(null)

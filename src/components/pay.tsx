@@ -20,7 +20,7 @@ const METHODS: Method[] = [
 type Result = 'success' | 'failed' | 'cancelled' | 'unknown'
 export type TablePaymentResult =
   | { kind: 'success'; amount: number }
-  | { kind: 'failed' | 'cancelled' }
+  | { kind: 'failed' | 'cancelled' | 'expired' }
 
 type StoredAttempt = { id: string; cents: number; result?: Result; awaitingResult?: boolean }
 type Attempt = { id: string; orderNo: number; cents: number; tip: number; method: Method }
@@ -47,8 +47,10 @@ export function PaymentFlow({
   gateway = false,
   direct = false,
   directSessionKey,
+  persistentAttempt = false,
   onFailure,
   resultSheet,
+  expiresAt, onExpired,
 }: {
   balance: number
   tipsEnabled: boolean
@@ -59,8 +61,11 @@ export function PaymentFlow({
   gateway?: boolean
   direct?: boolean
   directSessionKey?: string
+  persistentAttempt?: boolean
   onFailure?: (result: 'failed' | 'cancelled') => void
   resultSheet?: ReactNode
+  expiresAt?: number | null
+  onExpired?: () => void
 }) {
   const t = (s: L10n) => s[lang]
   const [methodId, setMethodId] = useState('apple')
@@ -68,7 +73,7 @@ export function PaymentFlow({
     if (!direct) return { kind: 'review' }
     let stored: StoredAttempt | null = null
     if (directSessionKey) {
-      try { stored = JSON.parse(sessionStorage.getItem(directSessionKey) || 'null') } catch { /* Start a new attempt if storage is unreadable. */ }
+      try { stored = JSON.parse((persistentAttempt ? localStorage : sessionStorage).getItem(directSessionKey) || 'null') } catch { /* Start a new attempt if storage is unreadable. */ }
     }
     const attempt = {
       id: stored?.id ?? `table-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -82,10 +87,10 @@ export function PaymentFlow({
     return { kind: 'redirect', attempt }
   })
   const saveDirectAttempt = (attempt: Attempt, state: Pick<StoredAttempt, 'result' | 'awaitingResult'> = {}) => {
-    if (directSessionKey) sessionStorage.setItem(directSessionKey, JSON.stringify({ id: attempt.id, cents: attempt.cents, ...state }))
+    if (directSessionKey) (persistentAttempt ? localStorage : sessionStorage).setItem(directSessionKey, JSON.stringify({ id: attempt.id, cents: attempt.cents, ...state }))
   }
   useEffect(() => {
-    if (!resultSheet && direct && stage.kind === 'redirect') saveDirectAttempt(stage.attempt)
+    if (!resultSheet && direct && stage.kind === 'redirect') saveDirectAttempt(stage.attempt, { awaitingResult: true })
   }, [direct, directSessionKey, stage])
 
   const receiveResult = (attempt: Attempt, result: Result) => {
@@ -93,6 +98,9 @@ export function PaymentFlow({
     if (direct) saveDirectAttempt(attempt, { result })
     setStage({ kind: 'polling', attempt, result })
   }
+  const [clock, setClock] = useState(Date.now())
+  useEffect(() => { if (!expiresAt) return; const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer) }, [expiresAt])
+  useEffect(() => { if (expiresAt && clock >= expiresAt && !resultSheet && (stage.kind === 'redirect' || stage.kind === 'review')) onExpired?.() }, [clock, expiresAt, resultSheet, stage.kind])
   const [notice, setNotice] = useState<null | 'failed' | 'cancelled'>(null)
   const [picking, setPicking] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -144,6 +152,7 @@ export function PaymentFlow({
       <ThirdPartyPage
         method={stage.attempt.method}
         amount={stage.attempt.cents / 100}
+        expiresAt={expiresAt}
         lang={lang}
         onReturn={(result) => receiveResult(stage.attempt, result)}
       />
@@ -157,6 +166,7 @@ export function PaymentFlow({
         result={{ kind: stage.kind, amount: attempt.cents / 100 }}
         lang={lang}
         orderNo={orderNo}
+        expiresAt={expiresAt}
         onResolve={stage.kind === 'pending' ? (result) => receiveResult(attempt, result) : undefined}
       />
     )
@@ -278,13 +288,15 @@ export function PaymentFlow({
   )
 }
 
-export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, onResolve }: {
+export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, onResolve, expiresAt, cancelledOrder = false }: {
   result: TablePaymentResult | { kind: 'polling' | 'pending'; amount: number }
   lang: Lang
   orderNo: number
   onClose?: () => void
   onRetry?: () => void
   onResolve?: (result: Exclude<Result, 'unknown'>) => void
+  expiresAt?: number | null
+  cancelledOrder?: boolean
 }) {
   const t = (s: L10n) => s[lang]
   const success = result.kind === 'success'
@@ -293,6 +305,7 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, on
   const pending = result.kind === 'pending'
   const title = checking ? t(strings.confirmingPayment)
     : pending ? t(L('Payment not confirmed', '付款結果未確認', '付款结果未确认'))
+    : result.kind === 'expired' ? t(L('Payment expired', '支付已超時', '支付已超时'))
     : success ? t(L('Payment successful', '付款成功', '付款成功'))
     : failed ? t(L('Payment failed', '付款失敗', '付款失败')) : t(strings.payCancelled)
   const icon = checking ? <Loader2 className="size-5 animate-spin" aria-hidden="true" />
@@ -304,7 +317,7 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, on
       title={<span role="status" className="flex items-center gap-3">{icon}{title}</span>}
       onClose={onClose}
       footer={onClose && <Button autoFocus className="w-full" onClick={onRetry ?? onClose}>
-        {onRetry ? t(L('Retry payment', '重新支付', '重新支付')) : t(strings.finish)}
+        {result.kind === 'expired' || cancelledOrder ? t(L('Order again', '重新點餐', '重新点餐')) : onRetry ? t(L('Retry payment', '重新支付', '重新支付')) : t(strings.finish)}
       </Button>}
     >
       {success ? (
@@ -315,6 +328,7 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, on
       ) : result.kind === 'polling' || result.kind === 'pending' ? (
         <div className="space-y-3 py-2">
           <dl><Row strong k={t(L('Paying now', '本次付款', '本次付款'))} v={money(result.amount)} /></dl>
+          {expiresAt && <PaymentCountdown expiresAt={expiresAt} lang={lang} />}
           {pending && <p className="text-callout text-ink-2">{t(L('Wait for the gateway to confirm before paying again.', '請等待支付網關確認，避免重複付款。', '请等待支付网关确认，避免重复付款。'))}</p>}
           {onResolve && (
             <div className="space-y-2 border-t border-line pt-3">
@@ -327,6 +341,10 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, on
             </div>
           )}
         </div>
+      ) : cancelledOrder ? (
+        <p className="py-2 text-callout text-ink-2">{t(L('Payment and the pending order were cancelled. Please order again.', '付款及待支付訂單已取消，請重新點餐。', '付款及待支付订单已取消，请重新点餐。'))}</p>
+      ) : result.kind === 'expired' ? (
+        <p className="py-2 text-callout text-ink-2">{t(L('Payment expired. Your order was cancelled; please order again.', '支付已超時，訂單已取消，請重新下單。', '支付已超时，订单已取消，请重新下单。'))}</p>
       ) : (
         <p className="py-2 text-callout text-ink-2">
           {t(L('Your selections are saved.', '已保留本次點餐內容。', '已保留本次点餐内容。'))}
@@ -340,11 +358,13 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, on
 function ThirdPartyPage({
   method,
   amount,
+  expiresAt,
   lang,
   onReturn,
 }: {
   method: Method
   amount: number
+  expiresAt?: number | null
   lang: Lang
   onReturn: (result: Result) => void
 }) {
@@ -363,6 +383,7 @@ function ThirdPartyPage({
         <span className="flex size-16 items-center justify-center rounded-lg bg-ink text-white">{method.icon}</span>
         <p className="mt-6 text-callout text-ink-2">{t(strings.restaurant)} · {t(method.name)}</p>
         <p className="mt-2 text-display font-semibold tabular-nums">{money(amount)}</p>
+        {expiresAt && <PaymentCountdown expiresAt={expiresAt} lang={lang} />}
       </div>
       <div className="space-y-3 px-5 pb-8">
         <Button variant="dark" onClick={() => onReturn('success')} className="w-full">
@@ -375,4 +396,12 @@ function ThirdPartyPage({
       </div>
     </div>
   )
+}
+
+export function PaymentCountdown({ expiresAt, lang }: { expiresAt: number; lang: Lang }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [])
+  const seconds = Math.max(0, Math.ceil((expiresAt - now) / 1000))
+  const time = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+  return <p className="mt-3 text-callout text-ink-2 tabular-nums">{lang === 'en' ? 'Time left to pay' : lang === 'zh' ? '支付剩余时间' : '支付剩餘時間'} {time}</p>
 }
