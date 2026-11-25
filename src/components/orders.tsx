@@ -47,30 +47,14 @@ export const countLabel = (count: number, lang: Lang) => (lang === 'en' ? `${cou
 
 /** Read-only item rows (thumb · name · per-dish status · options · price · qty) shared by confirm, order detail and payment. */
 export function ItemList({ lines, lang, amounts, status }: { lines: CartLine[]; lang: Lang; amounts: Record<string, number>; status?: 'pending' | 'ordered' }) {
-  const statusTag = status === 'pending'
-    ? <Tag compact tone="pending">{lang === 'en' ? 'Not ordered' : '未下單'}</Tag>
-    : status === 'ordered' ? <Tag compact tone="success">{lang === 'en' ? 'Ordered' : '已下單'}</Tag> : null
-  return (
-    <ul className="space-y-3">
-      {lines.map((l) => {
-        const label = optsLabel(l.opts, l.note, lang)
-        return (
-          <li key={l.key} className="flex items-start gap-3">
-            <DishImage src={l.dish.image} alt={l.dish.name[lang]} className="size-16 shrink-0 rounded-lg" />
-            <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-1">
-              <div className="col-start-1 row-start-1 min-w-0">
-                <p className="text-body font-semibold">{l.dish.name[lang]}</p>
-                {statusTag && <div className="mt-1">{statusTag}</div>}
-              </div>
-              <Price value={amounts[l.key] / 100} className="text-right text-headline font-semibold whitespace-nowrap" />
-              {label && <p className="col-start-1 row-start-2 text-callout text-ink-2">{label}</p>}
-              <p className="col-start-2 row-start-2 text-right text-callout text-ink-2 tabular-nums">×{l.qty}</p>
-            </div>
-          </li>
-        )
-      })}
-    </ul>
-  )
+  return <ul className="confirm-items">{lines.map((line) => {
+    const options = optsLabel(line.opts, line.note, lang)
+    return <li key={line.key} className="confirm-item">
+      <DishImage src={line.dish.image} alt={line.dish.name[lang]} className="confirm-item-image" />
+      <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status ${status}`}>{status === 'ordered' ? (lang === 'en' ? 'Ordered' : '已下單') : (lang === 'en' ? 'Not ordered' : '未下單')}</span>}<strong>{line.dish.name[lang]}</strong></div>
+        {options && <p className="confirm-options">{options}</p>}<div className="confirm-item-bottom"><span>×{line.qty}</span><strong>{money((amounts[line.key] ?? 0) / 100)}</strong></div></div>
+    </li>
+  })}</ul>
 }
 
 /**
@@ -153,7 +137,7 @@ export function OrderDetail({
     const description = completed ? undefined : allPaid ? t(strings.merchantAccepted) : (lang === 'en' ? 'Please complete payment' : '請完成支付')
     const showPay = online && remaining > 0
     return (
-    <Page title={lang === 'en' ? 'Order details' : '訂單詳情'} onBack={onClose} footer={(canAddDishes || showPay) && (
+    <Page className="order-design" title={lang === 'en' ? 'Order details' : '訂單詳情'} onBack={onClose} footer={(canAddDishes || showPay) && (
       showPay ? <ActionBar label={t(strings.balanceDue)} total={remaining}>
         {canAddDishes && <Button variant={showPay ? 'secondary' : 'primary'} onClick={onAddMore} className="flex-1">{t(strings.addDishes)}</Button>}
         {showPay && <Button onClick={onPay} className="flex-1">{t(strings.pay)}</Button>}
@@ -207,6 +191,7 @@ export function OrderDetail({
 
   return (
     <Page
+      className="order-design"
       title={t(strings.orders)}
       onBack={onClose}
       footer={

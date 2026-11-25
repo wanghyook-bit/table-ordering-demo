@@ -207,3 +207,14 @@
 .confirm-actions button { min-height: 52px; font-size: 15px; }
 .confirm-actions button:first-child:not(:last-child) { background: #f6f4f2; }
 .confirm-actions button:last-child { background: #ff7a30; }
+
+/* Shared order and payment surfaces follow the confirmation-page visual system. */
+:is(.order-design, .payment-design) { background: #fff; }
+:is(.order-design, .payment-design) > header { border: 0; padding-left: 12px; padding-right: 20px; box-shadow: 0 4px 2px rgba(0,0,0,.02); }
+:is(.order-design, .payment-design) > div:not(header) > section { padding: 20px 20px 0; }
+:is(.order-design, .payment-design) section > div:first-child:not(:last-child) { margin: 0 0 8px; padding: 0; }
+:is(.order-design, .payment-design) section h2 { color: #1d2128; font-size: 17px; line-height: 23px; }
+:is(.order-design, .payment-design) section > div:last-child { padding: 0; border-radius: 0; }
+:is(.order-design, .payment-design) section:last-child { padding-bottom: 24px; }
+:is(.order-design, .payment-design) footer { padding: 12px 20px max(28px,env(safe-area-inset-bottom)); }
+:is(.order-design, .payment-design) footer button { min-height: 52px; font-size: 15px; }
