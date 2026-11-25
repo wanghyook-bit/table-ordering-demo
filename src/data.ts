@@ -33,9 +33,9 @@ export const dishTags = {
 }
 
 export const categories: Category[] = [
-  { id: 'sets', name: L('Set meals', '精選套餐', '精选套餐'), thumb: u('1760504526044-840cade997b2') },
+  { id: 'sets', name: L('Set meals', '精選套餐', '精选套餐'), thumb: `${import.meta.env.BASE_URL}dishes/baked-pork-rice.png` },
   { id: 'dimsum', name: L('Hong Kong Snacks', '港式小食', '港式小食'), thumb: u('1558226933-792c5fe24e3b') },
-  { id: 'mains', name: L('Tea Room Classics', '冰室常餐', '冰室常餐'), thumb: u('1760504526044-840cade997b2') },
+  { id: 'mains', name: L('Tea Room Classics', '冰室常餐', '冰室常餐'), thumb: `${import.meta.env.BASE_URL}dishes/baked-pork-rice.png` },
   { id: 'roast', name: L('Roast & Rice', '燒味飯', '烧味饭'), thumb: u('1785899578127-f3883106c735') },
   { id: 'noodles', name: L('Noodles', '粉麵', '粉面'), thumb: u('1763994685090-c0927ff195d1') },
   { id: 'sweets', name: L('Milk Tea & Sweets', '奶茶甜品', '奶茶甜品'), thumb: u('1607914770021-82956c49ec03') },
@@ -51,17 +51,17 @@ export const dishes: Dish[] = [
   {
     id: 'set1', category: 'sets', name: L('Baked Pork Chop Rice Set', '焗豬扒飯套餐', '焗猪扒饭套餐'),
     desc: L('Baked pork chop rice with a choice of drink.', '焗豬扒飯配精選飲品一杯。', '焗猪扒饭配精选饮品一杯。'),
-    price: 98, unit: L('set', '份', '份'), image: u('1760504526044-840cade997b2'), tag: 'signature',
+    price: 98, unit: L('set', '份', '份'), image: `${import.meta.env.BASE_URL}dishes/baked-pork-rice.png`, tag: 'signature',
   },
   {
     id: 'set2', category: 'sets', name: L('Char Siu & Egg Rice Set', '叉燒煎蛋飯套餐', '叉烧煎蛋饭套餐'),
     desc: L('Char siu and egg rice with a choice of drink.', '叉燒煎蛋飯配精選飲品一杯。', '叉烧煎蛋饭配精选饮品一杯。'),
-    price: 78, unit: L('set', '份', '份'), image: u('1775385443474-b1a63739bf6a'), tag: 'popular',
+    price: 78, unit: L('set', '份', '份'), image: `${import.meta.env.BASE_URL}dishes/char-siu-egg-rice.png`, tag: 'popular',
   },
   {
     id: 'set3', category: 'sets', name: L('Wonton Noodle Set', '鮮蝦雲吞麵套餐', '鲜虾云吞面套餐'),
     desc: L('Shrimp wonton noodles with a choice of drink.', '鮮蝦雲吞麵配精選飲品一杯。', '鲜虾云吞面配精选饮品一杯。'),
-    price: 88, unit: L('set', '份', '份'), image: u('1607095097076-bf0221751ed6'),
+    price: 88, unit: L('set', '份', '份'), image: `${import.meta.env.BASE_URL}dishes/wonton-noodles.png`,
   },
   {
     id: 'ds1',
@@ -71,7 +71,6 @@ export const dishes: Dish[] = [
     price: 58,
     unit: basket,
     image: u('1558226933-792c5fe24e3b'),
-    tag: 'signature',
   },
   {
     id: 'ds2',
@@ -100,8 +99,7 @@ export const dishes: Dish[] = [
     desc: L('Honey char siu, sunny egg and greens over rice.', '蜜汁叉燒、煎蛋配時菜，白飯底。', '蜜汁叉烧、煎蛋配时菜，白饭底。'),
     price: 58,
     unit: plate,
-    image: u('1775385443474-b1a63739bf6a'),
-    tag: 'popular',
+    image: `${import.meta.env.BASE_URL}dishes/char-siu-egg-rice.png`,
   },
   {
     id: 'r2',
@@ -120,8 +118,7 @@ export const dishes: Dish[] = [
     price: 88,
     oldPrice: 98,
     unit: plate,
-    image: u('1760504526044-840cade997b2'),
-    tag: 'signature',
+    image: `${import.meta.env.BASE_URL}dishes/baked-pork-rice.png`,
   },
   {
     id: 'm2',
@@ -139,7 +136,7 @@ export const dishes: Dish[] = [
     desc: L('Springy egg noodles and shrimp wontons in a dried-flounder broth.', '銀絲細麵配鮮蝦雲吞，大地魚湯底。', '银丝细面配鲜虾云吞，大地鱼汤底。'),
     price: 68,
     unit: bowl,
-    image: u('1607095097076-bf0221751ed6'),
+    image: `${import.meta.env.BASE_URL}dishes/wonton-noodles.png`,
   },
   {
     id: 'sw1',
@@ -294,7 +291,7 @@ export const allOptions: Record<string, Option> = Object.fromEntries(
 )
 
 export const strings = {
-  restaurant: L('Harbour Jade', '港悅軒', '港悦轩'),
+  restaurant: L('Lai Wah Cafe', '麗華冰室', '丽华冰室'),
   meta: L('Cantonese Cuisine · Central, Hong Kong', '粵菜 · 香港中環', '粤菜 · 香港中环'),
   headline1: L('Authentic', '地道', '地道'),
   headline2: L('Cantonese,', '粵式滋味', '粤式滋味'),

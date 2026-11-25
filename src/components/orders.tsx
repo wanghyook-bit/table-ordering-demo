@@ -1,3 +1,4 @@
+import { uiText } from '../i18n'
 import { Check, ChevronRight, Clock, Wallet, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { strings, type L10n, type Lang } from '../data'
@@ -51,7 +52,7 @@ export function ItemList({ lines, lang, amounts, status }: { lines: CartLine[]; 
     const options = optsLabel(line.opts, line.note, lang)
     return <li key={line.key} className="confirm-item">
       <DishImage src={line.dish.image} alt={line.dish.name[lang]} className="confirm-item-image" />
-      <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status ${status}`}>{status === 'ordered' ? (lang === 'en' ? 'Ordered' : '已下單') : (lang === 'en' ? 'Not ordered' : '未下單')}</span>}<strong>{line.dish.name[lang]}</strong></div>
+      <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status ${status}`}>{status === 'ordered' ? (uiText(lang, 'ordered_fc521')) : (uiText(lang, 'not_ordered_95579'))}</span>}<strong>{line.dish.name[lang]}</strong></div>
         {options && <p className="confirm-options">{options}</p>}<div className="confirm-item-bottom"><span>×{line.qty}</span><strong>{money((amounts[line.key] ?? 0) / 100)}</strong></div></div>
     </li>
   })}</ul>
@@ -64,7 +65,7 @@ export function ItemList({ lines, lang, amounts, status }: { lines: CartLine[]; 
 export function RoundGroup({ index, lines, lang, amounts, status, showRound = true }: { index: number; lines: CartLine[]; lang: Lang; amounts: Record<string, number>; status?: 'pending' | 'ordered'; showRound?: boolean }) {
   return (
     <div>
-      {showRound && <h3 className="mb-2 text-callout font-semibold text-ink">{lang === 'en' ? `Round ${index}` : `第 ${index} 輪`}</h3>}
+      {showRound && <h3 className="mb-2 text-callout font-semibold text-ink">{lang === 'en' ? `Round ${index}` : lang === 'zh' ? `第 ${index} 轮` : `第 ${index} 輪`}</h3>}
       <ItemList lines={lines} lang={lang} amounts={amounts} status={status} />
     </div>
   )
@@ -132,23 +133,23 @@ export function OrderDetail({
 
   if (table && status === 'accepted') {
     const completed = allPaid && (!manualSettlement || settled)
-    const title = completed ? (lang === 'en' ? 'Completed' : '已完成')
-      : allPaid ? (lang === 'en' ? 'Paid' : '已付款') : (lang === 'en' ? 'Awaiting payment' : '待付款')
-    const description = completed ? undefined : allPaid ? t(strings.merchantAccepted) : (lang === 'en' ? 'Please complete payment' : '請完成支付')
+    const title = completed ? (uiText(lang, 'completed_f1a22'))
+      : allPaid ? (uiText(lang, 'paid_86900')) : (uiText(lang, 'awaiting_payment_99cbe'))
+    const description = completed ? undefined : allPaid ? t(strings.merchantAccepted) : (uiText(lang, 'please_complete_payment_68e19'))
     const showPay = online && remaining > 0
     return (
-    <Page className="order-design" title={lang === 'en' ? 'Order details' : '訂單詳情'} onBack={onClose} footer={(canAddDishes || showPay || allPaid) && (
+    <Page className="order-design" title={uiText(lang, 'order_details_22864')} onBack={onClose} footer={(canAddDishes || showPay || allPaid) && (
       <div className="confirm-actions">
         {canAddDishes && <Button variant="secondary" onClick={onAddMore} className="flex-1">{t(strings.addDishes)}</Button>}
         {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid} className="flex-1">{t(strings.pay)}</Button>}
       </div>
     )}>
       <Section>
-        {allPaid ? <div className="order-success"><img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} alt="" /><strong>{lang === 'en' ? 'Payment successful' : '付款成功'}</strong></div> : <StatusPanel variant="row" tone="pending" icon={<Clock className="size-5" aria-hidden="true" />} title={title} description={description} />}
+        {allPaid ? <div className="order-success"><img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} alt="" /><strong>{uiText(lang, 'payment_successful_e6774')}</strong></div> : <StatusPanel variant="row" tone="pending" icon={<Clock className="size-5" aria-hidden="true" />} title={title} description={description} />}
         {!allPaid && <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode="dine" guests={guests} lang={lang} /></div>}
       </Section>
       <Section
-        title={lang === 'en' ? 'Items' : '餐品詳情'}
+        title={uiText(lang, 'items_2f38f')}
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(rounds.reduce((sum, round) => sum + itemCount(round.lines), 0), lang)}</span>}
       >
         <div className="confirm-item-groups">
@@ -165,17 +166,17 @@ export function OrderDetail({
           ))}
         </div>
       </Section>
-      <Section title={lang === 'en' ? 'Amount details' : '金額明細'}>
+      <Section title={uiText(lang, 'amount_details_25bdd')}>
         <OrderAmounts quote={bill.quote} tip={bill.tip} total={total} paid={paid} remaining={remaining} lang={lang} onPaymentHistory={payments.length ? () => setHistoryOpen(true) : undefined} />
       </Section>
-      <Section title={lang === 'en' ? 'Order information' : '訂單資訊'}>
+      <Section title={uiText(lang, 'order_information_fd7fd')}>
         <dl className="order-information">
-          <Row k={lang === 'en' ? 'Order number' : '訂單號'} v={`#${orderNo}`} />
-          {rounds[0]?.time && <Row k={lang === 'en' ? 'Order time' : '下單時間'} v={rounds[0].time} />}
-          {allPaid && <Row k={lang === 'en' ? 'Table' : '桌台'} v={table} />}
-          {orderNote && <Row k={lang === 'en' ? 'Order note' : '訂單備註'} v={orderNote} />}
+          <Row k={uiText(lang, 'order_number_6b17e')} v={`#${orderNo}`} />
+          {rounds[0]?.time && <Row k={uiText(lang, 'order_time_38773')} v={rounds[0].time} />}
+          {allPaid && <Row k={uiText(lang, 'table_a5616')} v={table} />}
+          {orderNote && <Row k={uiText(lang, 'order_note_756d0')} v={orderNote} />}
         </dl>
-        {manualSettlement && allPaid && !settled && <TextButton tone="muted" underline className="mt-3" onClick={onSettle}>{lang === 'en' ? 'Simulate staff settlement' : '模擬店員結算'}</TextButton>}
+        {manualSettlement && allPaid && !settled && <TextButton tone="muted" underline className="mt-3" onClick={onSettle}>{uiText(lang, 'simulate_staff_settlement_30a6f')}</TextButton>}
       </Section>
       {historyOpen && (
         <BottomSheet title={t(strings.paymentHistory)} onClose={() => setHistoryOpen(false)}>
@@ -218,8 +219,8 @@ export function OrderDetail({
             <StatusPanel
               tone={status === 'cancelled' ? 'danger' : status === 'accepted' && allPaid ? 'success' : 'pending'}
               icon={status === 'accepted' && allPaid ? <Check className="size-5" /> : <StatusIcon className="size-5" aria-hidden="true" />}
-              title={status === 'accepted' ? (remaining > 0 ? (lang === 'en' ? 'Awaiting payment' : '待付款') : manualSettlement && !settled ? (lang === 'en' ? 'Awaiting settlement' : '待結算') : (lang === 'en' ? 'Completed' : '已完成')) : t(status === 'cancelled' ? strings.orderCancelled : strings.awaitingAcceptance)}
-              description={status === 'accepted' ? (remaining > 0 && !online ? (lang === 'en' ? 'Please pay at the cashier' : '請前往收銀台付款') : t(strings.merchantAccepted)) : t(status === 'cancelled' ? strings.rejectedHint : strings.payAfterAcceptance)}
+              title={status === 'accepted' ? (remaining > 0 ? (uiText(lang, 'awaiting_payment_99cbe')) : manualSettlement && !settled ? (uiText(lang, 'awaiting_settlement_20fa3')) : (uiText(lang, 'completed_f1a22'))) : t(status === 'cancelled' ? strings.orderCancelled : strings.awaitingAcceptance)}
+              description={status === 'accepted' ? (remaining > 0 && !online ? (uiText(lang, 'please_pay_at_the_cashier_94edf')) : t(strings.merchantAccepted)) : t(status === 'cancelled' ? strings.rejectedHint : strings.payAfterAcceptance)}
             />
             {table && <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode={mode} guests={guests} lang={lang} /></div>}
           </Section>
@@ -276,7 +277,7 @@ export function OrderDetail({
             </Section>
           )}
 
-          {status === 'accepted' && <Section><p className="text-callout text-ink-2">{lang === 'en' ? 'Please follow staff instructions' : '請留意店員指示'}</p>{manualSettlement && allPaid && !settled && <TextButton tone="muted" underline className="mt-2" onClick={onSettle}>{lang === 'en' ? 'Simulate staff settlement' : '模擬店員結算'}</TextButton>}</Section>}
+          {status === 'accepted' && <Section><p className="text-callout text-ink-2">{uiText(lang, 'please_follow_staff_instructions_d9c43')}</p>{manualSettlement && allPaid && !settled && <TextButton tone="muted" underline className="mt-2" onClick={onSettle}>{uiText(lang, 'simulate_staff_settlement_30a6f')}</TextButton>}</Section>}
           {status === 'accepted' && <Section
             title={`${t(strings.order)} #${orderNo}`}
             trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(rounds.reduce((sum, r) => sum + itemCount(r.lines), 0), lang)}</span>}
@@ -358,7 +359,7 @@ function PaymentHistory({ payments, lang }: { payments: PaymentRecord[]; lang: L
           <div className="min-w-0">
             <p className="text-body font-medium">{payment.name[lang]}</p>
             <time className="mt-0.5 block text-caption text-ink-2" dateTime={payment.paidAt.toISOString()}>{formatSettlementTime(payment.paidAt)}</time>
-            {payment.tip > 0 && <p className="mt-0.5 text-caption text-ink-2">{lang === 'en' ? 'Tip' : '小費'} {money(payment.tip / 100)}</p>}
+            {payment.tip > 0 && <p className="mt-0.5 text-caption text-ink-2">{uiText(lang, 'tip_d8c94')} {money(payment.tip / 100)}</p>}
           </div>
           <span className="shrink-0 text-body font-semibold tabular-nums">{money(payment.amount)}</span>
         </li>

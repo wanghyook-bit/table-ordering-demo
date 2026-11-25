@@ -1,3 +1,4 @@
+import { uiText } from '../i18n'
 import { useState, type ReactNode } from 'react'
 import { Check, CupSoda, Search, ShoppingBag } from 'lucide-react'
 import { dishHints, dishes, dishOptions, dishTags, strings, type Dish, type L10n, type Lang, type OptionGroup } from '../data'
@@ -51,7 +52,7 @@ export function DishCard({
     // h-full + mt-auto footer: cards in a row share height, long names grow the card instead of clipping
     <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-white shadow-soft ${dish.soldOut ? 'opacity-60' : ''}`}>
       <button onClick={onOpen} className="relative block overflow-hidden">
-        <DishImage src={dish.image} alt={dish.name.en} className="aspect-[4/3] w-full transition duration-500 hover:scale-105" />
+        <DishImage src={dish.image} alt={dish.name[lang]} className="aspect-[4/3] w-full transition duration-500 hover:scale-105" />
         <span className="absolute inset-x-2 top-2 flex items-start justify-between gap-1">
           {ordered > 0 ? (
             <Tag tone="success">
@@ -70,12 +71,12 @@ export function DishCard({
         )}
       </button>
       <button onClick={onOpen} className="mt-3 flex min-h-10 items-start px-3 text-left">
-        <h3 className="line-clamp-2 text-body font-semibold">{dish.name[lang]}</h3>
+        <h3 className="break-words text-body font-semibold">{dish.name[lang]}</h3>
       </button>
       <div className="mt-auto flex min-h-12 items-center gap-0.5 px-3 pb-2">
         <p className="flex min-w-0 flex-1 items-baseline gap-0.5 text-headline font-semibold whitespace-nowrap">
           <Price value={dish.price} className="shrink-0" />
-          <span className="truncate text-caption font-normal text-muted">/{dish.unit[lang]}</span>
+          {(dish.unit.en === 'basket' || dish.unit.en === '2 pcs') && <span className="truncate text-caption font-normal text-ink-2">/{dish.unit[lang]}</span>}
         </p>
         {!dish.soldOut && <DishAddButton dish={dish} lang={lang} qty={qty} onClick={onAdd} />}
       </div>
@@ -121,7 +122,8 @@ export function DishPage({
   const price = unitPrice(dish, opts)
   const t = (s: L10n) => s[lang]
   const noteTokens = note.split(/[，,\s]+/).filter(Boolean)
-  const quickNotes = QUICK_NOTES.filter((quick) => !groups.some((group) => group.options.some((option) => t(option.name) === t(quick))))
+  const appropriateNotes = dish.category === 'sets' ? [] : dish.category === 'sweets' ? [] : QUICK_NOTES
+  const quickNotes = appropriateNotes.filter((quick) => !groups.some((group) => group.options.some((option) => t(option.name) === t(quick))))
   const toggleQuickNote = (label: string) => setNote((current) => {
     const tokens = current.split(/[，,\s]+/).filter(Boolean)
     if (tokens.includes(label)) return tokens.filter((token) => token !== label).join('，')
@@ -141,7 +143,7 @@ export function DishPage({
       <BackButton onImage onClick={onClose} className="absolute top-2 left-3 z-10 sm:pointer-fine:top-11" />
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
         <div className="bg-tile">
-          <DishImage src={dish.image} alt={dish.name.en} className="aspect-[16/10] w-full" />
+          <DishImage src={dish.image} alt={dish.name[lang]} className="aspect-[16/10] w-full" />
         </div>
         <div className="border-b border-line px-5 pt-5 pb-4">
           {(dish.tag || ordered > 0) && (
@@ -163,7 +165,7 @@ export function DishPage({
           </div>
           {groups.map((g) => (
             <section key={g.id}>
-              <h2 className="mb-2 flex flex-wrap items-baseline gap-x-2 text-body font-semibold text-ink">{t(g.name)} <span className="text-caption font-normal text-ink-2">{g.type === 'single' ? (lang === 'en' ? 'Required · choose one' : '必選 · 選一項') : (lang === 'en' ? 'Optional' : '可選')}</span></h2>
+              <h2 className="mb-2 flex flex-wrap items-baseline gap-x-2 text-body font-semibold text-ink">{t(g.name)} <span className="text-caption font-normal text-ink-2">{g.type === 'single' ? (uiText(lang, 'required_choose_one_967f7')) : (uiText(lang, 'optional_1eb0b'))}</span></h2>
               <div className="flex flex-wrap gap-2">
                 {g.options.map((o, index) => {
                   const on = !!sel[g.id]?.includes(o.id)
@@ -181,7 +183,7 @@ export function DishPage({
           <section>
             <div className="mb-2 flex items-center justify-between gap-3">
               <h2 className="text-body font-semibold text-ink">{t(strings.specialRequest)}</h2>
-              <span className="text-caption text-muted tabular-nums">{note.length} / {MAX_DISH_NOTE}</span>
+              {note.length > 0 && <span className="text-caption text-ink-2 tabular-nums">{note.length} / {MAX_DISH_NOTE}</span>}
             </div>
             <textarea
               rows={2}
@@ -322,7 +324,7 @@ export function CartBar({ count, total, lang, bump, onOpen }: { count: number; t
             </span>
           </span>
           <span className="min-w-0">
-            <span className="block text-caption text-ink-2">{lang === 'en' ? 'Total' : '總計'}</span>
+            <span className="block text-caption text-ink-2">{uiText(lang, 'total_7f9d9')}</span>
             <Price value={total} className="block truncate text-headline font-semibold" />
           </span>
         </button>

@@ -1,3 +1,4 @@
+import { uiText } from '../i18n'
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import { strings, type L10n, type Lang } from '../data'
@@ -78,8 +79,8 @@ export function ConfirmPage({
         <>
           {repriced && <InlineAlert tone="pending" title={t(feeText.reprice)} className="mb-2" />}
           <div className="confirm-actions">
-            {expiresAt ? <Button variant="secondary" onClick={onCancelPayment} className="flex-1 cancel-payment">{lang === 'en' ? 'Cancel payment' : '取消支付'}</Button> : table && <Button variant="secondary" onClick={onAddMore} className="flex-1">{lang === 'en' ? 'Add dishes' : '加菜'}</Button>}
-            <Button onClick={onSubmit} disabled={!valid} className="flex-1">{expiresAt ? <>{lang === 'en' ? 'Pay' : '去支付'} <PaymentCountdown expiresAt={expiresAt} lang={lang} variant="inline" /></> : prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}</Button>
+            {expiresAt ? <Button variant="secondary" onClick={onCancelPayment} className="flex-1 cancel-payment">{uiText(lang, 'cancel_payment_2f54b')}</Button> : table && <Button variant="secondary" onClick={onAddMore} className="flex-1">{uiText(lang, 'add_dishes_c537b')}</Button>}
+            <Button onClick={onSubmit} disabled={!valid} className="flex-1">{expiresAt ? <>{uiText(lang, 'pay_550a8')} <PaymentCountdown expiresAt={expiresAt} lang={lang} variant="inline" /></> : prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}</Button>
           </div>
         </>
       }
@@ -92,11 +93,11 @@ export function ConfirmPage({
 
       {table ? (
         <Section>
-          <div className="confirm-table"><div className="confirm-table-name"><span className="confirm-table-icon"><img src={`${import.meta.env.BASE_URL}confirm-assets/table.svg`} alt="" /></span><strong>{table}</strong></div><Button size="md" onClick={onSwitchTable}>{lang === 'en' ? 'Switch table' : '更換桌台'}</Button></div>
+          <div className="confirm-table"><div className="confirm-table-name"><span className="confirm-table-icon"><img src={`${import.meta.env.BASE_URL}confirm-assets/table.svg`} alt="" /></span><strong>{table}</strong></div><Button size="md" onClick={onSwitchTable}>{uiText(lang, 'switch_table_7b2a0')}</Button></div>
         </Section>
       ) : !isAddOn ? (
         <>
-        <Section title={lang === 'en' ? 'Dining option' : '用餐方式'}>
+        <Section title={uiText(lang, 'dining_option_b5bd3')}>
           <div className="flex gap-2">{(['dine','takeaway'] as const).map((option) => <OptionChip key={option} active={mode === option} onClick={() => setMode(option)} className="flex-1">{t(option === 'dine' ? strings.dineIn : strings.takeaway)}</OptionChip>)}</div>
         </Section>
         {mode === 'takeaway' && (
@@ -117,7 +118,7 @@ export function ConfirmPage({
 
       {expiresAt && <div className="confirm-countdown"><PaymentCountdown expiresAt={expiresAt} lang={lang} variant="banner" /></div>}
       <Section
-        title={table ? (lang === 'en' ? 'Items' : '餐品詳情') : t(strings.yourItems)}
+        title={table ? (uiText(lang, 'items_2f38f')) : t(strings.yourItems)}
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(itemCount(lines) + (table ? previousRounds.reduce((sum, round) => sum + itemCount(round.lines), 0) : 0), lang)}</span>}
       >
         <div className="confirm-item-groups">
@@ -126,14 +127,14 @@ export function ConfirmPage({
           ))}
           <div>
             <ItemList lines={expanded ? lines : lines.slice(0, 3)} lang={lang} amounts={quote.rows} status={table && previousRounds.length ? 'pending' : undefined} />
-            {lines.length > 3 && <TextButton tone="muted" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="mt-2 w-full justify-center gap-1">{expanded ? (lang === 'en' ? 'Show less' : '收起') : (lang === 'en' ? 'View more items' : '展開查看更多菜品')}{expanded ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}</TextButton>}
+            {lines.length > 3 && <TextButton tone="muted" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="mt-2 w-full justify-center gap-1">{expanded ? (uiText(lang, 'show_less_aff96')) : (uiText(lang, 'view_more_items_7fd3a'))}{expanded ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}</TextButton>}
           </div>
         </div>
       </Section>
-      <Section title={lang === 'en' ? 'Amount details' : '金額明細'}>
+      <Section title={uiText(lang, 'amount_details_25bdd')}>
         <OrderAmounts quote={combined?.quote ?? quote} tip={combined?.tip} total={combined?.total ?? quote.total / 100} paid={combined && combined.paid > 0 ? combined.paid : undefined} remaining={combined?.remaining ?? quote.total / 100} lang={lang} />
       </Section>
-      {table && <Section><button type="button" className="confirm-note-toggle" onClick={() => setNoteOpen(!noteOpen)} aria-expanded={noteOpen}><strong>{lang === 'en' ? 'Note' : '備註'}</strong><span>{orderNote || (lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求')} {noteOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span></button>{noteOpen && <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)} rows={2} placeholder={lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求'} className={`${textareaClass} mt-2`} />}</Section>}
+      {table && <Section><button type="button" className="confirm-note-toggle" onClick={() => setNoteOpen(!noteOpen)} aria-expanded={noteOpen}><strong>{uiText(lang, 'note_fc405')}</strong><span>{orderNote || (uiText(lang, 'preferences_or_requests_f292b'))} {noteOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span></button>{noteOpen && <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)} rows={2} placeholder={uiText(lang, 'preferences_or_requests_f292b')} className={`${textareaClass} mt-2`} />}</Section>}
     </Page>
   )
 }

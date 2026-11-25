@@ -1,3 +1,4 @@
+import { uiText } from '../i18n'
 /**
  * Harbour Jade UI kit — the only place visual primitives are defined.
  *
@@ -8,10 +9,13 @@
  *   colour   brand = action + brand emphasis only · success / pending / info / danger = status
  *   sizes    icon buttons 44 · quantity circles 32 · list thumb 56
  */
-import { useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { AlertCircle, Check, ChevronLeft, Info, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { useBackSwipe, useSheetSwipe } from '../gestures'
 import type { Lang } from '../data'
+
+export const LanguageContext = createContext<Lang>('hk')
+const accessibilityText = { back: { en: 'Back', hk: '返回', zh: '返回' }, close: { en: 'Close', hk: '關閉', zh: '关闭' }, increase: { en: 'Increase', hk: '增加', zh: '增加' }, decrease: { en: 'Decrease', hk: '減少', zh: '减少' }, remove: { en: 'Remove', hk: '移除', zh: '移除' } }
 
 /* ---------- Money ---------- */
 
@@ -96,7 +100,7 @@ export function Button({
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center gap-2 rounded-full text-center font-medium whitespace-nowrap transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 ${
+      className={`inline-flex items-center justify-center gap-2 rounded-full text-center font-medium leading-tight transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 ${
         size === 'lg' ? 'min-h-button-lg px-5 text-body' : 'min-h-11 px-4 text-callout'
       } ${btnVariant[variant]} ${className}`}
     >
@@ -171,8 +175,9 @@ export function IconButton({
 }
 
 export function BackButton({ onClick, onImage = false, className = '' }: { onClick: () => void; onImage?: boolean; className?: string }) {
+  const lang = useContext(LanguageContext)
   return (
-    <button type="button" aria-label="Back" onClick={onClick} className={`grid size-11 shrink-0 place-items-center rounded-full active:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-40 ${onImage ? 'text-white' : 'text-ink'} ${className}`}>
+    <button type="button" aria-label={accessibilityText.back[lang]} onClick={onClick} className={`grid size-11 shrink-0 place-items-center rounded-full active:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-40 ${onImage ? 'text-white' : 'text-ink'} ${className}`}>
       <ChevronLeft className={`size-6 ${onImage ? 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]' : ''}`} />
     </button>
   )
@@ -194,12 +199,13 @@ export function Badge({ children, className = '' }: { children: ReactNode; class
 export function Stepper({ qty, onMinus, onPlus, min = 0 }: { qty: number; onMinus: () => void; onPlus: () => void; min?: number }) {
   const trash = min === 0 && qty === 1
   const buttonClass = 'group grid size-11 shrink-0 place-items-center rounded-full disabled:opacity-40'
+  const lang = useContext(LanguageContext)
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <button
         onClick={onMinus}
         disabled={qty <= min}
-        aria-label={trash ? 'Remove' : 'Decrease'}
+        aria-label={trash ? accessibilityText.remove[lang] : accessibilityText.decrease[lang]}
         className={buttonClass}
       >
         <span className="grid size-8 place-items-center rounded-full bg-tile text-ink-2 transition group-active:bg-line">
@@ -209,7 +215,7 @@ export function Stepper({ qty, onMinus, onPlus, min = 0 }: { qty: number; onMinu
       <span className="min-w-4 text-center text-body font-medium tabular-nums">{qty}</span>
       <button
         onClick={onPlus}
-        aria-label="Increase"
+        aria-label={accessibilityText.increase[lang]}
         className={buttonClass}
       >
         <span className="grid size-8 place-items-center rounded-full bg-brand-soft text-brand transition group-active:bg-brand/20">
@@ -327,6 +333,7 @@ export function BottomSheet({
   footer?: ReactNode
   headerActions?: ReactNode
 }) {
+  const lang = useContext(LanguageContext)
   const [expanded, setExpanded] = useState(false)
   const swipe = useSheetSwipe(() => onClose?.(), () => setExpanded(true))
   return (
@@ -339,7 +346,7 @@ export function BottomSheet({
           <div className="flex min-w-0 items-center gap-2"><h2 className="text-headline font-semibold">{title}</h2>{titleAccessory}</div>
           <div className="flex shrink-0 items-center gap-2">
             {headerActions}
-            {onClose && <IconButton variant="plain" label="Close" onClick={onClose}>
+            {onClose && <IconButton variant="plain" label={accessibilityText.close[lang]} onClick={onClose}>
               <X className="size-5" />
             </IconButton>}
           </div>
@@ -464,7 +471,7 @@ export function Section({ title, trailing, children }: { title?: ReactNode; trai
 
 /** Compact table identity — must never outrank the order status it sits beside. */
 export function TableIdentity({ table, mode, guests, lang }: { table: string; mode: 'dine' | 'takeaway'; guests: number; lang: Lang }) {
-  const modeLabel = mode === 'dine' ? (lang === 'en' ? 'Dine in' : '堂食') : (lang === 'en' ? 'Takeaway' : '外帶')
+  const modeLabel = mode === 'dine' ? (uiText(lang, 'dine_in_51682')) : (uiText(lang, 'takeaway_f1b48'))
   return (
     <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-callout text-ink-2">
       <span className="font-semibold text-ink tabular-nums">{table}</span>

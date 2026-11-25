@@ -1,3 +1,4 @@
+import { uiText } from '../i18n'
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, ChevronRight } from 'lucide-react'
@@ -59,9 +60,9 @@ export function FeeRows({ quote, lang, tip = 0, totalLabel, total = quote.total 
           <span className="flex flex-wrap items-center gap-1.5">
             <span>{strings.discount[lang]}</span>
             <span className="rounded-sm bg-tile px-1.5 py-0.5 text-caption font-medium text-ink-2">
-              {coupon ? (lang === 'en' ? 'Coupon' : '優惠券') : saving.name[lang]}
+              {coupon ? (uiText(lang, 'coupon_c80c3')) : saving.name[lang]}
             </span>
-            {coupon && <span className="text-caption text-ink-2">{lang === 'en' ? `$${coupon.minimum / 100} minimum` : `滿 $${coupon.minimum / 100}`}</span>}
+            {coupon && <span className="text-caption text-ink-2">{lang === 'en' ? `$${coupon.minimum / 100} minimum` : lang === 'zh' ? `满 $${coupon.minimum / 100}` : `滿 $${coupon.minimum / 100}`}</span>}
           </span>
         )
         return <Row key={saving.key} k={label} v={saving.included

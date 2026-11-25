@@ -1,3 +1,4 @@
+import { uiText } from './i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Check,
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react'
 import { HOME_AVATAR, HOME_HERO, categories, dishOptions, dishes, strings, type Dish, type L10n, type Lang } from './data'
 import { isCustomizable, lineKey, type CartLine } from './cart'
-import { BottomSheet, Button, ChoiceRow, Empty, IconButton, LANGS, OptionChip, Stepper, TextButton, Thumb, money, tagClass } from './components/ui'
+import { BottomSheet, Button, LanguageContext, ChoiceRow, Empty, IconButton, LANGS, OptionChip, Stepper, TextButton, Thumb, money, tagClass } from './components/ui'
 import { FeeRows, feeText } from './components/pricing'
 import { couponIssue, quoteCart, storeRules, toCents, type CouponId, type PriceQuote, type QuoteOptions } from './pricing'
 import { CartBar, CartRow, DishCard, DishPage, SearchOverlay } from './components/menu'
@@ -68,7 +69,7 @@ function demoCart(): CartLine[] {
 
 type OrderRequest = { status: 'waiting' | 'cancelled'; round: Round }
 
-type Sheet = null | 'language' | 'cart' | 'categories'
+type Sheet = null | 'language' | 'cart' | 'categories' | 'leave-payment'
 type Page = null | 'search' | 'confirm' | 'orders' | 'my-orders' | 'pay' | 'member' | { dish: Dish }
 
 export default function App() {
@@ -86,9 +87,10 @@ export default function App() {
   useBrowserBack()
   // Hong Kong default: Traditional Chinese
   const [savedSession] = useState(restoreSession)
-  const [lang, setLang] = useState<Lang>('hk')
+  const [lang, setLang] = useState<Lang>(() => ['en', 'hk', 'zh'].includes(savedSession?.lang) ? savedSession.lang : (['en', 'hk', 'zh'].includes(localStorage.getItem('ordering-language') || '') ? localStorage.getItem('ordering-language') as Lang : 'hk'))
   const t = (s: L10n) => s[lang]
   const langAttr = LANGS.find((l) => l.code === lang)!.attr
+  useEffect(() => { document.title = strings.restaurant[lang]; document.documentElement.lang = langAttr }, [lang, langAttr])
 
   const [entered, setEntered] = useState(!!table || (savedSession?.entered ?? (!!storeCode || demo)))
   const [member, setMember] = useState<Member | null>(null)
@@ -133,9 +135,9 @@ export default function App() {
 
   const tablePaymentOpen = !!table && page === 'pay'
   useEffect(() => {
-    sessionStore.setItem(sessionKey, JSON.stringify({ entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt }))
+    sessionStore.setItem(sessionKey, JSON.stringify({ entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt, lang }))
     if (paymentResult) sessionStore.removeItem(paymentSessionKey)
-  }, [entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt])
+  }, [entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt, lang])
 
   useEffect(() => {
     if (!pendingRound || !prepayExpiresAt || (page === 'pay' && !paymentResult) || paymentResult?.kind === 'expired' || paymentResult?.kind === 'success' || paymentResult?.kind === 'cancelled') return
@@ -178,7 +180,7 @@ export default function App() {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, qty: l.qty + delta } : l)).filter((l) => l.qty > 0))
   }
   // Customisable dishes open the detail page; simple ones add straight away.
-  const lockedMessage = lang === 'en' ? 'Ordering unavailable' : '暫不可下單'
+  const lockedMessage = uiText(lang, 'ordering_unavailable_4f1f3')
   const quickAdd = (dish: Dish) => { if (!canOrder) { setToast(lockedMessage); return } return isCustomizable(dish) ? setPage({ dish }) : addLine(dish, [], '', 1) }
 
   useEffect(() => {
@@ -300,7 +302,7 @@ export default function App() {
   const categoryPillClass = (isActive: boolean) => `flex h-11 shrink-0 items-center rounded-full text-body whitespace-nowrap transition-colors ${isActive ? 'font-semibold text-brand' : 'text-muted'}`
 
   return (
-    <div className="flex min-h-dvh items-center justify-center sm:pointer-fine:p-6">
+    <LanguageContext.Provider value={lang}><div className="flex min-h-dvh items-center justify-center sm:pointer-fine:p-6">
       <div id="ordering-frame" lang={langAttr} style={{ zoom: previewScale }} className="relative h-dvh w-full shrink-0 overflow-hidden bg-white sm:pointer-fine:h-[844px] sm:pointer-fine:w-[390px] sm:pointer-fine:rounded-device sm:pointer-fine:shadow-float">
         <StatusBar dark={darkStatus} solid={barSolid && !page && entered} />
 
@@ -316,7 +318,7 @@ export default function App() {
         )}
 
         <div {...menuSwipe} ref={scrollRef} inert={!entered || page !== null} onScroll={onScroll} className={`no-scrollbar h-full overflow-y-auto ${count > 0 ? 'pb-28' : 'pb-6'}`}>
-          {(readonly || storeState === 'closed' || storeState === 'offline') && <div role="status" className="relative z-10 bg-pending-soft px-5 py-3 text-center text-callout font-medium text-pending">{storeState === 'closed' ? (lang === 'en' ? 'The store is closed and cannot take orders right now.' : '門店已打烊，暫不能下單') : storeState === 'offline' ? (lang === 'en' ? 'The store is offline and cannot take orders right now.' : '門店離線，暫不能下單') : (lang === 'en' ? 'Menu browsing only' : '僅供瀏覽菜單')}</div>}
+          {(readonly || storeState === 'closed' || storeState === 'offline') && <div role="status" className="relative z-10 bg-pending-soft px-5 py-3 text-center text-callout font-medium text-pending">{storeState === 'closed' ? (uiText(lang, 'the_store_is_closed_and_cannot_take_or_42d99')) : storeState === 'offline' ? (uiText(lang, 'the_store_is_offline_and_cannot_take_o_55628')) : (uiText(lang, 'menu_browsing_only_f84fe'))}</div>}
           {/* Hero */}
           <header className="relative z-0 bg-brand-wash sm:pointer-fine:pt-11">
               <div className="relative aspect-[16/9] overflow-hidden bg-tile">
@@ -356,11 +358,11 @@ export default function App() {
                 <button type="button" onClick={() => setPage('member')} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left active:opacity-70">
                   <img src={HOME_AVATAR} alt="" className="size-10 shrink-0 rounded-full object-cover" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-callout font-semibold">{memberLoggedIn && member ? member.name : lang === 'en' ? 'Welcome, please sign in' : '歡迎您，請登入'}</span>
-                    <span className="mt-1 block text-caption text-ink-2">{memberLoggedIn ? (lang === 'en' ? 'Member' : '初級會員') : (lang === 'en' ? 'Enjoy member benefits' : '加入即享會員專屬優惠')}</span>
+                    <span className="block text-callout font-semibold">{memberLoggedIn && member ? member.name : uiText(lang, 'welcome_please_sign_in_3b8ad')}</span>
+                    <span className="mt-1 block text-caption text-ink-2">{memberLoggedIn ? (uiText(lang, 'member_7930b')) : (uiText(lang, 'member_benefits_a61a2'))}</span>
                   </span>
                 </button>
-                <button type="button" aria-label={lang === 'en' ? 'Switch table' : '更換桌台'} onClick={() => setToast(lang === 'en' ? 'Scan the QR code on your new table to switch tables.' : '請掃描新桌台上的二維碼以更換桌台')} className="flex min-h-11 shrink-0 items-center justify-end text-right text-ink active:opacity-70">
+                <button type="button" aria-label={uiText(lang, 'switch_table_7b2a0')} onClick={() => setToast(uiText(lang, 'scan_the_qr_code_on_your_new_table_to__cb2aa'))} className="flex min-h-11 shrink-0 items-center justify-end text-right text-ink active:opacity-70">
                   <span className="text-headline font-semibold tabular-nums">{table}</span>
                 </button>
               </div>
@@ -440,7 +442,7 @@ export default function App() {
           />
         )}
 
-        {page === 'member' && <MemberPage lang={lang} member={member} loggedIn={memberLoggedIn} onRegister={(next) => { setMember(next); setMemberLoggedIn(true); setToast(lang === 'en' ? 'Membership ready' : '已成功加入會員') }} onLogout={() => setMemberLoggedIn(false)} onClose={() => setPage(null)} />}
+        {page === 'member' && <MemberPage lang={lang} member={member} loggedIn={memberLoggedIn} onRegister={(next) => { setMember(next); setMemberLoggedIn(true); setToast(uiText(lang, 'membership_ready_4f377')) }} onLogout={() => setMemberLoggedIn(false)} onClose={() => setPage(null)} />}
 
         <div className="contents" inert={paymentResult !== null || tablePaymentOpen}>
           {(page === 'confirm' || (tablePaymentOpen && pendingRound)) && (
@@ -463,12 +465,12 @@ export default function App() {
               tablePrepay={!!table && prepay}
               orderNote={orderNote}
               setOrderNote={setOrderNote}
-              onSwitchTable={() => setToast(lang === 'en' ? 'Scan the QR code on your new table to switch tables.' : '請掃描新桌台上的二維碼以更換桌台')}
+              onSwitchTable={() => setToast(uiText(lang, 'scan_the_qr_code_on_your_new_table_to__cb2aa'))}
               onAddMore={() => setPage(null)}
               prepay={prepay && online}
               setMode={(next) => { setMode(next); setReviewQuote(quoteCart(lines, { ...pricingOptions, mode: next })); setRepriced(false) }}
               onBack={() => {
-                if (pendingRound && prepayExpiresAt) return
+                if (pendingRound && prepayExpiresAt) { setSheet('leave-payment'); return }
                 setPage(null)
                 setSheet('cart')
               }}
@@ -597,6 +599,11 @@ export default function App() {
         )}
 
         {/* ---------- Sheets ---------- */}
+        {sheet === 'leave-payment' && (
+          <BottomSheet title={uiText(lang, 'leave_payment_788c0')} onClose={() => setSheet(null)} footer={<div className="flex gap-3"><Button variant="secondary" className="flex-1" onClick={() => setSheet(null)}>{uiText(lang, 'keep_waiting_c27e1')}</Button><Button className="flex-1" onClick={() => { setSheet(null); setPaymentResult({ kind: 'cancelled' }); setPage('confirm') }}>{uiText(lang, 'cancel_order_aba37')}</Button></div>}>
+            <p className="text-callout text-ink-2">{uiText(lang, 'your_order_is_awaiting_payment_you_can_dec85')}</p>
+          </BottomSheet>
+        )}
         {sheet === 'language' && (
           <BottomSheet title={t(strings.language)} onClose={() => setSheet(null)}>
             <div className="space-y-2">
@@ -608,6 +615,7 @@ export default function App() {
                   leading={l.short}
                   onClick={() => {
                     setLang(l.code)
+                    localStorage.setItem('ordering-language', l.code)
                     setSheet(null)
                   }}
                 >
@@ -703,7 +711,7 @@ export default function App() {
           </div>
         )}
       </div>
-    </div>
+    </div></LanguageContext.Provider>
   )
 }
 

@@ -35,7 +35,7 @@
   --color-cocoa: #553b2d;
   --color-ink: #1d2128;
   --color-ink-2: #4a4f58;
-  --color-muted: #8b9099;
+  --color-muted: #6b717b;
   --color-line: #efece9;
   --color-tile: #f6f4f2;
   --color-canvas: #f1ece8;
@@ -262,3 +262,9 @@
 .countdown-banner { display:flex; align-items:center; justify-content:center; gap:6px; border:1px solid #ffd7bf; border-radius:16px; background:#fff7f2; padding:12px; color:#4a4f58; font-size:14px; font-weight:600; }
 .countdown-banner strong { color:#ff7a30; font-size:20px; line-height:24px; font-variant-numeric:tabular-nums; }
 .confirm-actions .cancel-payment { border:1px solid #ff7a30; color:#ff7a30; background:#fff !important; }
+
+/* Shared action and compact-text behavior across order screens. */
+:is(.confirm-design,.order-design,.my-orders-page) button { overflow-wrap:anywhere; }
+:is(.confirm-design,.order-design,.my-orders-page) footer button { min-width:0; }
+.my-orders-heading h2 { font-size:17px; line-height:23px; }
+.my-orders-actions button { min-width:0; flex:1; }

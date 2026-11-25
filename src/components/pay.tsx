@@ -1,3 +1,4 @@
+import { uiText } from '../i18n'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Check, CircleAlert, ChevronRight, CreditCard, Loader2, Nfc, QrCode, Smartphone, X } from 'lucide-react'
 import { strings, type L10n, type Lang } from '../data'
@@ -248,9 +249,9 @@ export function PaymentFlow({
 
       {polling && <Section><StatusPanel tone="info" icon={<Loader2 className="size-5 animate-spin text-info" aria-hidden="true" />} title={t(strings.confirmingPayment)} description={t(strings.paymentLockHint)} /></Section>}
 
-      {stage.kind === 'pending' && <Section><p className="text-callout text-ink-2">{lang === 'en' ? 'The payment result is still being confirmed.' : '付款結果仍在確認中，請勿重複付款。'}</p><div className="mt-3 flex flex-wrap gap-3"><TextButton tone="brandStrong" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'unknown' })}>{lang === 'en' ? 'Check again' : '重新查詢'}</TextButton><TextButton tone="brandStrong" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'success' })}>{lang === 'en' ? 'Simulate confirmed payment' : '模擬確認成功'}</TextButton><TextButton tone="muted" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'failed' })}>{lang === 'en' ? 'Simulate failure' : '模擬確認失敗'}</TextButton></div></Section>}
+      {stage.kind === 'pending' && <Section><p className="text-callout text-ink-2">{uiText(lang, 'the_payment_result_is_still_being_conf_2f3d9')}</p><div className="mt-3 flex flex-wrap gap-3"><TextButton tone="brandStrong" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'unknown' })}>{uiText(lang, 'check_again_7fc92')}</TextButton><TextButton tone="brandStrong" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'success' })}>{uiText(lang, 'simulate_confirmed_payment_3cfb9')}</TextButton><TextButton tone="muted" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'failed' })}>{uiText(lang, 'simulate_failure_2ff4f')}</TextButton></div></Section>}
       <Section title={t(strings.payMethod)}>
-        {gateway ? <p className="text-body text-ink-2">{lang === 'en' ? 'Complete payment through the gateway' : '將由支付網關處理付款'}</p> : <button
+        {gateway ? <p className="text-body text-ink-2">{uiText(lang, 'complete_payment_through_the_gateway_8641e')}</p> : <button
           disabled={polling}
           onClick={() => setPicking(true)}
           className="flex w-full items-center gap-3 rounded-lg border border-line p-3 text-left transition active:bg-tile"
@@ -389,7 +390,7 @@ function ThirdPartyPage({
         <Button variant="dark" onClick={() => onReturn('success')} className="w-full">
           {t(strings.providerSuccess)}
         </Button>
-        <TextButton tone="muted" underline className="w-full py-2 underline-offset-4" onClick={() => onReturn('unknown')}>{lang === 'en' ? 'Return without a result' : '切回 H5（結果未確認）'}</TextButton>
+        <TextButton tone="muted" underline className="w-full py-2 underline-offset-4" onClick={() => onReturn('unknown')}>{uiText(lang, 'return_without_a_result_7a3a9')}</TextButton>
         <TextButton tone="muted" underline className="w-full py-2 underline-offset-4" onClick={() => onReturn('failed')}>
           {t(strings.simulateFail)}
         </TextButton>
