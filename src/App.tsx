@@ -641,8 +641,7 @@ export default function App() {
               lines.length > 0 && (
                 <div className="flex items-center gap-4">
                   <div className="shrink-0">
-                    <p className="text-caption text-ink-2">{t(strings.total)}</p>
-                    <p className="text-title font-semibold tabular-nums">{money(quote.total / 100)}</p>
+                    <p aria-label={`${t(strings.total)} ${money(quote.total / 100)}`} className="text-title font-semibold tabular-nums">{money(quote.total / 100)}</p>
                   </div>
                   <Button
                     onClick={() => {
@@ -663,7 +662,6 @@ export default function App() {
               <Empty title={t(strings.emptyCart)} />
             ) : (
               <>
-                <div className="cart-section-title"><span>{uiText(lang, 'items_2f38f')}</span><span className="cart-item-count">{lang === 'en' ? `${count} ${count === 1 ? 'item' : 'items'}` : `共 ${count} 件`}</span></div>
                 <ul className="confirm-items">
                   {lines.map((l) => (
                     <CartRow key={l.key} line={l} lang={lang} amount={quote.rows[l.key]}>

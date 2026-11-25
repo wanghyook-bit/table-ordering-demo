@@ -321,7 +321,7 @@ export function CartBar({ count, total, lang, bump, onOpen }: { count: number; t
             </span>
           </span>
           <span className="min-w-0">
-            <span className="block text-caption text-ink-2">{uiText(lang, 'total_7f9d9')}</span>
+            <span className="sr-only">{uiText(lang, 'total_7f9d9')}</span>
             <Price value={total} className="block truncate text-headline font-semibold" />
           </span>
         </button>

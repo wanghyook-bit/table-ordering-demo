@@ -491,11 +491,11 @@ export function TableIdentity({ table, mode, guests, lang }: { table: string; mo
  * Footer pattern used by every action page: amount with its meaning, primary action on the right.
  * `label` is required so a bare number can never appear in a bottom bar.
  */
-export function ActionBar({ label, total, children, hint }: { label: string; total: number; children: ReactNode; hint?: ReactNode }) {
+export function ActionBar({ label, total, children, hint, hideLabel = false }: { label: string; total: number; children: ReactNode; hint?: ReactNode; hideLabel?: boolean }) {
   return (
     <div className="flex items-center gap-4">
       <div className="min-w-0 shrink-0">
-        <p className="text-caption text-ink-2">{label}</p>
+        <p className={hideLabel ? "sr-only" : "text-caption text-ink-2"}>{label}</p>
         <Price value={total} className="text-title font-semibold" />
         {hint && <p className="mt-0.5 text-caption text-ink-2">{hint}</p>}
       </div>

@@ -194,7 +194,7 @@ export function OrderDetail({
       onBack={onClose}
       footer={
         status === 'accepted' && (
-          <ActionBar label={allPaid ? t(strings.total) : t(strings.balanceDue)} total={allPaid ? total : remaining}>
+          <ActionBar label={allPaid ? t(strings.total) : t(strings.balanceDue)} total={allPaid ? total : remaining} hideLabel={allPaid}>
             <div className="flex w-full gap-3">
               {allPaid && (!table || settled || !manualSettlement) ? (
                 <Button onClick={onFinish} className="min-w-0 flex-1 whitespace-nowrap max-[359px]:px-3">
