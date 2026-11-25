@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react'
 import { strings, type L10n, type Lang } from '../data'
 import type { CartLine } from '../cart'
 import type { PriceQuote } from '../pricing'
@@ -67,7 +67,7 @@ export function ConfirmPage({
   return (
     <Page
       className="confirm-design"
-      title={isAddOn ? t(strings.confirmAddTitle) : t(strings.confirmTitle)}
+      title={t(strings.confirmTitle)}
       onBack={onBack}
       footer={
         <>
@@ -114,7 +114,7 @@ export function ConfirmPage({
         title={table ? (lang === 'en' ? 'Items' : '餐品詳情') : t(strings.yourItems)}
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(itemCount(lines) + (table ? previousRounds.reduce((sum, round) => sum + itemCount(round.lines), 0) : 0), lang)}</span>}
       >
-        <div className="space-y-5">
+        <div className="confirm-item-groups">
           {table && previousRounds.map((round) => (
             <ItemList key={round.id} lines={round.lines} lang={lang} amounts={round.quote.rows} status="ordered" />
           ))}
@@ -127,7 +127,7 @@ export function ConfirmPage({
       <Section title={lang === 'en' ? 'Amount details' : '金額明細'}>
         <OrderAmounts quote={combined?.quote ?? quote} tip={combined?.tip} total={combined?.total ?? quote.total / 100} paid={combined && combined.paid > 0 ? combined.paid : undefined} remaining={combined?.remaining ?? quote.total / 100} lang={lang} />
       </Section>
-      {table && <Section><button type="button" className="confirm-note-toggle" onClick={() => setNoteOpen(!noteOpen)} aria-expanded={noteOpen}><strong>{lang === 'en' ? 'Note' : '備註'}</strong><span>{orderNote || (lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求')} <ChevronDown size={16} /></span></button>{noteOpen && <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)} rows={2} placeholder={lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求'} className={`${textareaClass} mt-2`} />}</Section>}
+      {table && <Section><button type="button" className="confirm-note-toggle" onClick={() => setNoteOpen(!noteOpen)} aria-expanded={noteOpen}><strong>{lang === 'en' ? 'Note' : '備註'}</strong><span>{orderNote || (lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求')} {noteOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span></button>{noteOpen && <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)} rows={2} placeholder={lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求'} className={`${textareaClass} mt-2`} />}</Section>}
     </Page>
   )
 }

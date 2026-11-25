@@ -237,3 +237,8 @@
 .order-design section:has(.order-success) { padding-top:24px; padding-bottom:12px; }
 .confirm-design .order-amount-summary > div { font-size:15px; line-height:23px; }
 .confirm-design .order-amount-summary dd { font-size:17px; }
+
+/* Equal spacing across previously ordered and new dish rows. */
+.confirm-item-groups { display:flex; flex-direction:column; gap:8px; }
+.confirm-design section:has(.order-amounts) .order-amount-breakdown > div { font-size:14px; line-height:21.75px; }
+.confirm-design section:has(.order-amounts) .order-amount-breakdown dd { font-size:15px; }
