@@ -446,7 +446,7 @@ export default function App() {
           {(page === 'confirm' || (tablePaymentOpen && pendingRound)) && (
             <ConfirmPage
               lines={lines}
-              expiresAt={pendingRound ? prepayExpiresAt : null}
+              expiresAt={pendingRound && !tablePaymentOpen && !paymentResult ? prepayExpiresAt : null}
               onCancelPayment={() => { setPaymentResult({ kind: 'cancelled' }); setPage('confirm') }}
               quote={pendingRound?.quote ?? reviewQuote ?? quote}
               repriced={repriced}

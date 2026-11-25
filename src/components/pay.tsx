@@ -328,7 +328,7 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, on
       ) : result.kind === 'polling' || result.kind === 'pending' ? (
         <div className="space-y-3 py-2">
           <dl><Row strong k={t(L('Paying now', '本次付款', '本次付款'))} v={money(result.amount)} /></dl>
-          {expiresAt && <PaymentCountdown expiresAt={expiresAt} lang={lang} />}
+          {pending && expiresAt && <PaymentCountdown expiresAt={expiresAt} lang={lang} />}
           {pending && <p className="text-callout text-ink-2">{t(L('Wait for the gateway to confirm before paying again.', '請等待支付網關確認，避免重複付款。', '请等待支付网关确认，避免重复付款。'))}</p>}
           {onResolve && (
             <div className="space-y-2 border-t border-line pt-3">
