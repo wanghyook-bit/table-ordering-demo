@@ -14,6 +14,14 @@ export type Round = { id: number; lines: CartLine[]; mode: Mode; quote: PriceQuo
 export type PaymentRecord = { id: string; orderNo: number; methodId: string; name: L10n; amount: number; tip: number; paidAt: Date }
 type OrderStatus = 'waiting' | 'accepted' | 'cancelled'
 
+export function orderDisplayState(status: OrderStatus, allPaid: boolean, awaitingSettlement: boolean, lang: Lang) {
+  if (status === 'waiting') return { tone: 'pending', label: strings.awaitingAcceptance[lang] } as const
+  if (status === 'cancelled') return { tone: 'neutral', label: uiText(lang, 'cancelled_5899a') } as const
+  if (!allPaid) return { tone: 'pending', label: uiText(lang, 'awaiting_payment_99cbe') } as const
+  if (awaitingSettlement) return { tone: 'pending', label: uiText(lang, 'awaiting_settlement_20fa3') } as const
+  return { tone: 'success', label: uiText(lang, 'completed_f1a22') } as const
+}
+
 export function formatOrderTime(round?: Round): string | undefined {
   if (!round?.createdAt) return round?.time
   const date = new Date(round.createdAt)
@@ -97,6 +105,7 @@ export function OrderDetail({
   onAddMore,
   onPay,
   onFinish,
+  checkingPayment = false,
   table, online, canAddDishes, manualSettlement, settled, onSettle, tablePrepay, guests, orderNote,
 }: {
   rounds: Round[]
@@ -116,6 +125,7 @@ export function OrderDetail({
   onAddMore: () => void
   onPay: () => void
   onFinish: () => void
+  checkingPayment?: boolean
   table: string | null
   online: boolean
   canAddDishes: boolean
@@ -140,27 +150,26 @@ export function OrderDetail({
   const StatusIcon = status === 'cancelled' ? X : Clock
 
   if (table && status) {
-    const completed = allPaid && (!manualSettlement || settled)
-    const title = status === 'waiting' ? t(strings.awaitingAcceptance)
-      : status === 'cancelled' ? t(strings.orderCancelled)
-      : completed ? uiText(lang, 'completed_f1a22')
-      : allPaid ? uiText(lang, 'paid_86900') : uiText(lang, 'awaiting_payment_99cbe')
+    const { tone, label } = orderDisplayState(status, allPaid, manualSettlement && !settled, lang)
     const description = status === 'waiting' ? t(strings.payAfterAcceptance)
       : status === 'cancelled' ? t(strings.rejectedHint)
-      : completed || allPaid || online ? undefined : uiText(lang, 'please_pay_at_the_cashier_94edf')
+      : allPaid ? uiText(lang, 'payment_successful_e6774')
+      : online ? undefined : uiText(lang, 'please_pay_at_the_cashier_94edf')
     const showPay = status === 'accepted' && online && remaining > 0
     return (
-    <Page className="order-design" title={uiText(lang, 'order_details_22864')} onBack={onClose} footer={status === 'accepted' && (canAddDishes || showPay || allPaid) && (
+    <Page className="order-design" title={uiText(lang, 'order_details_22864')} onBack={onClose} backDisabled={checkingPayment} footer={status === 'accepted' && (canAddDishes || showPay || allPaid) && (
       <div className="confirm-actions">
-        {canAddDishes && <Button variant="secondary" onClick={onAddMore} className="flex-1">{t(strings.addDishes)}</Button>}
-        {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid} className="flex-1">{t(strings.pay)}</Button>}
+        {canAddDishes && <Button variant="secondary" onClick={onAddMore} disabled={checkingPayment} className="flex-1">{t(strings.addDishes)}</Button>}
+        {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid || checkingPayment} className="flex-1">{t(checkingPayment ? strings.paymentChecking : strings.pay)}</Button>}
       </div>
     )}>
       <Section>
-        {allPaid ? <div className="order-success"><img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} alt="" /><strong>{uiText(lang, 'payment_successful_e6774')}</strong></div> : <div className={`order-success order-status-illustration ${status === 'cancelled' ? 'is-cancelled' : ''}`}>
-          <div className="order-status-art" aria-hidden="true"><span className="order-status-orbit" /><span className="order-status-circle">{status === 'cancelled' ? <X size={44} strokeWidth={2.5} /> : <Clock size={44} strokeWidth={2.5} />}</span></div>
-          <strong>{title}</strong>{description && <span className="order-status-description">{description}</span>}
-        </div>}
+        <div className="order-success order-status-illustration" data-tone={tone}>
+          {tone === 'success'
+            ? <img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} width={280} height={150} alt="" />
+            : <div className="order-status-art" aria-hidden="true"><span className="order-status-orbit" /><span className="order-status-circle"><StatusIcon size={44} strokeWidth={2.5} /></span></div>}
+          <strong>{label}</strong>{description && <span className="order-status-description">{description}</span>}
+        </div>
       </Section>
       <Section
         title={uiText(lang, 'items_2f38f')}
@@ -190,7 +199,6 @@ export function OrderDetail({
           {formatOrderTime(rounds[0]) && <Row k={uiText(lang, 'order_time_38773')} v={formatOrderTime(rounds[0])} />}
           {orderNote && <Row k={uiText(lang, 'order_note_756d0')} v={orderNote} />}
         </dl>
-        {manualSettlement && allPaid && !settled && <TextButton tone="muted" underline className="mt-3" onClick={onSettle}>{uiText(lang, 'simulate_staff_settlement_30a6f')}</TextButton>}
       </Section>
       {historyOpen && (
         <BottomSheet title={t(strings.paymentHistory)} onClose={() => setHistoryOpen(false)}>
@@ -246,7 +254,7 @@ export function OrderDetail({
                   <dt className="text-callout font-semibold text-ink-2">{t(allPaid ? strings.fullyPaid : strings.balanceDue)}</dt>
                   <dd className="mt-1 text-title font-semibold text-ink tabular-nums">{money(remaining)}</dd>
                 </div>
-                <div className="mt-3 space-y-2 border-t border-line pt-3">
+                <div className="amount-rows mt-3 border-t border-line pt-3">
                   <Row k={t(strings.billTotal)} v={money(total)} />
                   <Row k={t(strings.confirmedPaid)} v={money(paid)} />
                 </div>
@@ -316,7 +324,7 @@ export function OrderDetail({
               {methods.size > 0 && (
                 <div className="mt-4 border-t border-line pt-3">
                   <h3 className="mb-2 text-callout font-semibold text-ink-2">{t(strings.payMethod)}</h3>
-                  <dl className="space-y-2">
+                  <dl className="amount-rows">
                     {[...methods].map(([id, method]) => <Row key={id} k={t(method.name)} v={money(method.amount)} />)}
                   </dl>
                 </div>
@@ -350,17 +358,17 @@ export function OrderDetail({
 
 export function OrderAmounts({ quote, tip = 0, total, paid, remaining, lang, onPaymentHistory, showSummary = true }: { quote: Pick<PriceQuote, 'subtotal' | 'service' | 'packaging' | 'savings' | 'total'>; tip?: number; total: number; paid?: number; remaining: number; lang: Lang; onPaymentHistory?: () => void; showSummary?: boolean }) {
   return <dl className="order-amounts">
-    <div className="order-amount-breakdown">
+    <div className="amount-rows order-amount-breakdown">
       <Row k={lang === 'en' ? 'Items total' : lang === 'zh' ? '商品总额' : '商品總額'} v={money(quote.subtotal / 100)} />
       {quote.service > 0 && <Row k={strings.service[lang]} v={money(quote.service / 100)} />}
       {quote.packaging > 0 && <Row k={strings.packagingFee[lang]} v={money(quote.packaging / 100)} />}
       {tip > 0 && <Row k={strings.tip[lang]} v={money(tip / 100)} />}
       {quote.savings.map((saving) => <Row key={saving.key} k={saving.name[lang]} v={saving.included ? `${feeText.save[lang]} ${money(saving.cents / 100)} · ${feeText.included[lang]}` : `−${money(saving.cents / 100)}`} />)}
     </div>
-    {showSummary && <div className="order-amount-summary">
+    {showSummary && <div className="amount-rows order-amount-summary">
       <Row k={strings.billTotal[lang]} v={money(total)} strong />
       {paid !== undefined && <Row k={onPaymentHistory ? <button type="button" onClick={onPaymentHistory} className="inline-flex items-center gap-1">{strings.confirmedPaid[lang]} <ChevronRight size={16} /></button> : strings.confirmedPaid[lang]} v={money(paid)} strong />}
-      <Row k={strings.balanceDue[lang]} v={<span className="text-[#ff7a30]">{money(remaining)}</span>} strong />
+      <Row k={strings.balanceDue[lang]} v={<span className={remaining > 0 ? 'text-action' : undefined}>{money(remaining)}</span>} strong />
     </div>}
   </dl>
 }

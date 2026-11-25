@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Globe,
+  Languages,
   ReceiptText,
   Search,
   ShoppingBag,
@@ -15,7 +16,7 @@ import {
 } from 'lucide-react'
 import { HOME_AVATAR, HOME_HERO, categories, dishOptions, dishes, strings, type Dish, type L10n, type Lang } from './data'
 import { isCustomizable, lineKey, type CartLine } from './cart'
-import { BottomSheet, Button, LanguageContext, ChoiceRow, Empty, IconButton, LANGS, OptionChip, Stepper, TextButton, Thumb, money, tagClass } from './components/ui'
+import { BottomSheet, Button, LanguageContext, Empty, IconButton, LANGS, OptionChip, Stepper, TextButton, Thumb, money, tagClass } from './components/ui'
 import { FeeRows, feeText } from './components/pricing'
 import { couponIssue, quoteCart, storeRules, toCents, type CouponId, type PriceQuote, type QuoteOptions } from './pricing'
 import { CartBar, CartRow, DishCard, DishPage, SearchOverlay } from './components/menu'
@@ -31,8 +32,10 @@ import { useBackSwipe, useBrowserBack } from './gestures'
 const ORDER_NO = 1041
 const PICKUP = 'T021'
 const RECEIPT_NO = '0001'
+const CATEGORY_SCROLL_INSET = 12
 const entry = new URLSearchParams(window.location.search)
 const table = entry.get('code') === 'table' ? entry.get('table')?.trim() || 'A08' : null
+const tableTrial = !!table && entry.get('trial') === '1'
 const storeCode = entry.get('code') === 'store'
 const demo = entry.get('demo') === 'fees' || (entry.get('demo') === 'postpay' && !table)
 const manualAcceptance = entry.get('accept') === 'manual'
@@ -46,6 +49,11 @@ const manualSettlement = entry.get('settlement') === 'manual'
 const sessionKey = `ordering-a3:${window.location.search}`
 const paymentSessionKey = `${sessionKey}:payment`
 const sessionStore = table && prepay ? localStorage : sessionStorage
+
+function menuScrollBehavior(): ScrollBehavior {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+}
+
 function restoreSession() {
   try {
     const saved = JSON.parse(sessionStore.getItem(sessionKey) || 'null')
@@ -64,7 +72,7 @@ function demoCart(): CartLine[] {
 type OrderRequest = { status: 'waiting' | 'cancelled'; round: Round }
 
 type Sheet = null | 'language' | 'cart' | 'categories' | 'leave-payment'
-type Page = null | 'search' | 'confirm' | 'orders' | 'my-orders' | 'pay' | 'member' | { dish: Dish }
+type Page = null | 'search' | 'confirm' | 'orders' | 'my-orders' | 'pay' | 'member' | { dish: Dish; returnTo?: 'search' }
 
 export default function App() {
   // Keep the 390 × 844 preview intact when the desktop side panel is short.
@@ -108,6 +116,7 @@ export default function App() {
   const [pendingRound, setPendingRound] = useState<Round | null>(savedSession?.pendingRound ?? null)
   const [prepayExpiresAt, setPrepayExpiresAt] = useState<number | null>(savedSession?.prepayExpiresAt ?? null)
   const [paymentAttempt, setPaymentAttempt] = useState(0)
+  const [checkingPayment, setCheckingPayment] = useState(false)
   const [paymentResult, setPaymentResult] = useState<TablePaymentResult | null>(savedSession?.paymentResult ?? null)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.tablePaymentOpen ? 'pay' : savedSession?.pendingRound ? 'confirm' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
@@ -128,6 +137,11 @@ export default function App() {
   } : undefined)
 
   const tablePaymentOpen = !!table && page === 'pay'
+  useEffect(() => {
+    if (!tableTrial || !entry.get('session')) return
+    sessionStore.setItem(`table-trial-last:table:${prepay ? 'pre' : 'post'}`, window.location.pathname + window.location.search)
+  }, [])
+
   useEffect(() => {
     sessionStore.setItem(sessionKey, JSON.stringify({ entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt, lang }))
     if (paymentResult) sessionStore.removeItem(paymentSessionKey)
@@ -175,7 +189,11 @@ export default function App() {
   }
   // Customisable dishes open the detail page; simple ones add straight away.
   const lockedMessage = uiText(lang, 'ordering_unavailable_4f1f3')
-  const quickAdd = (dish: Dish) => { if (!canOrder) { setToast(lockedMessage); return } return isCustomizable(dish) ? setPage({ dish }) : addLine(dish, [], '', 1) }
+  const quickAdd = (dish: Dish, returnTo?: 'search') => {
+    if (!canOrder) { setToast(lockedMessage); return }
+    if (isCustomizable(dish)) setPage({ dish, returnTo })
+    else addLine(dish, [], '', 1)
+  }
 
   useEffect(() => {
     if (!toast) return
@@ -193,8 +211,8 @@ export default function App() {
     if (!el) return
     const target = sectionRefs.current[id]
     setActive(id)
-    if (id === 'all') el.scrollTo({ top: 0, behavior: 'smooth' })
-    if (target) el.scrollTo({ top: Math.max(0, target.offsetTop - stickyOffset() + 4), behavior: 'smooth' })
+    if (id === 'all') el.scrollTo({ top: 0, behavior: menuScrollBehavior() })
+    if (target) el.scrollTo({ top: Math.max(0, target.offsetTop - stickyOffset() - CATEGORY_SCROLL_INSET), behavior: menuScrollBehavior() })
   }
 
   const onScroll = () => {
@@ -206,7 +224,7 @@ export default function App() {
       const top = parseFloat(getComputedStyle(nav).top) || 0
       setCategoryPinned(el.scrollTop > 0 && nav.getBoundingClientRect().top <= el.getBoundingClientRect().top + top + 1)
     }
-    const offset = stickyOffset() + 12
+    const offset = stickyOffset() + CATEGORY_SCROLL_INSET + 1
     const first = sectionRefs.current[categories[0].id]
     if (first && el.scrollTop < first.offsetTop - offset - 30) return setActive('all')
     const activationLine = el.getBoundingClientRect().top + offset
@@ -227,7 +245,7 @@ export default function App() {
     const left = selected.getBoundingClientRect().left - container.getBoundingClientRect().left + container.scrollLeft
     const right = left + selected.offsetWidth
     if (left < container.scrollLeft || right > container.scrollLeft + container.clientWidth) {
-      container.scrollTo({ left: left - (container.clientWidth - selected.offsetWidth) / 2, behavior: 'smooth' })
+      container.scrollTo({ left: left - (container.clientWidth - selected.offsetWidth) / 2, behavior: menuScrollBehavior() })
     }
   }, [active])
 
@@ -239,7 +257,7 @@ export default function App() {
   }
 
   const submitOrder = () => {
-    if (pendingRound && prepayExpiresAt && Date.now() < prepayExpiresAt) { setPaymentResult(null); setPaymentAttempt(v => v + 1); setPage('pay'); return }
+    if (pendingRound && prepayExpiresAt && Date.now() < prepayExpiresAt) { setToast(null); setPaymentResult(null); setPaymentAttempt(v => v + 1); setPage('pay'); return }
     if (!lines.length || pendingRound || request?.status === 'waiting' || !canOrder) return
     if (!hasValidOrderContact(mode, contact)) return
     const latestPackaging = entry.get('reprice') === '1' && quote.packaging > 0 ? storeRules.packagingCents + 100 : packagingCents
@@ -293,8 +311,9 @@ export default function App() {
     scrollRef.current?.scrollTo({ top: 0 })
   }
 
-  const darkStatus = (entered && page === null) || page === 'my-orders' || page === 'member' || page === 'orders' || page === 'confirm'
-  const categoryPillClass = (isActive: boolean) => `flex h-11 shrink-0 items-center rounded-full text-body whitespace-nowrap transition-colors ${isActive ? 'font-semibold text-brand' : 'text-muted'}`
+  const showMenuNotice = readonly || storeState === 'closed' || storeState === 'offline'
+  const darkStatus = (entered && page === null && (barSolid || showMenuNotice)) || page === 'my-orders' || page === 'member' || page === 'orders' || page === 'confirm' || page === 'pay'
+  const categoryPillClass = (isActive: boolean) => `flex h-11 shrink-0 items-center rounded-full text-body whitespace-nowrap transition-colors ${isActive ? 'font-semibold text-action' : 'text-muted'}`
 
   return (
     <LanguageContext.Provider value={lang}><div className="flex min-h-dvh items-center justify-center sm:pointer-fine:p-6">
@@ -313,16 +332,18 @@ export default function App() {
         )}
 
         <div {...menuSwipe} ref={scrollRef} inert={!entered || page !== null} onScroll={onScroll} className={`no-scrollbar h-full overflow-y-auto ${count > 0 ? 'pb-28' : 'pb-6'}`}>
-          {(readonly || storeState === 'closed' || storeState === 'offline') && <div role="status" className="relative z-10 bg-pending-soft px-5 py-3 text-center text-callout font-medium text-pending">{storeState === 'closed' ? (uiText(lang, 'the_store_is_closed_and_cannot_take_or_42d99')) : storeState === 'offline' ? (uiText(lang, 'the_store_is_offline_and_cannot_take_o_55628')) : (uiText(lang, 'menu_browsing_only_f84fe'))}</div>}
+          {showMenuNotice && <div role="status" className="relative z-10 bg-pending-soft px-5 py-3 text-center text-callout font-medium text-pending">{storeState === 'closed' ? (uiText(lang, 'the_store_is_closed_and_cannot_take_or_42d99')) : storeState === 'offline' ? (uiText(lang, 'the_store_is_offline_and_cannot_take_o_55628')) : (uiText(lang, 'menu_browsing_only_f84fe'))}</div>}
           {/* Hero */}
-          <header className="relative z-0 bg-brand-wash sm:pointer-fine:pt-11">
+          <header className="relative z-0 bg-banner-edge sm:pointer-fine:pt-11">
               <div className="relative aspect-[16/9] overflow-hidden bg-tile">
-              <img src={HOME_HERO} fetchPriority="high" width={960} height={534} alt="" className="h-full w-full object-cover" />
-              <div className="home-banner-copy" aria-label={t(strings.restaurant)}>
-                <strong className={lang === 'en' ? 'home-banner-name is-english' : 'home-banner-name'}>{t(strings.restaurant)}</strong>
-                <span className="home-banner-subtitle">{{en:'HK CAFE · SINCE 1997', hk:'港式茶餐廳 · 始於 1997', zh:'港式茶餐厅 · 始于 1997'}[lang]}</span>
+              <img src={HOME_HERO} fetchPriority="high" width={960} height={540} alt="" className="h-full w-full object-cover" />
+              <div className="home-banner-copy">
+                <div className="home-banner-brand">
+                  <strong className="home-banner-name">{t(strings.restaurant)}</strong>
+                  <span className="home-banner-subtitle">{{en:'HK CAFE · SINCE 1997', hk:'港式茶餐廳 · 始於 1997', zh:'港式茶餐厅 · 始于 1997'}[lang]}</span>
+                </div>
                 <span className="home-banner-left">{{en:'CHAR SIU & EGG RICE', hk:'經典叉燒煎蛋飯', zh:'经典叉烧煎蛋饭'}[lang]}</span>
-                <span className="home-banner-right">{{en:'PORK CHOP RICE & LEMON TEA', hk:'豬扒飯配凍檸茶', zh:'猪扒饭配冻柠茶'}[lang]}</span>
+                <span className="home-banner-right">{{en:'PORK CHOP RICE', hk:'焗豬扒飯', zh:'焗猪扒饭'}[lang]}</span>
               </div>
               {!table && <button type="button" aria-label={t(strings.backHome)} onClick={() => { setEntered(false); setActive('all'); scrollRef.current?.scrollTo({ top: 0 }) }} className="absolute top-3 left-3 grid size-11 place-items-center text-white drop-shadow-md sm:pointer-fine:top-14">
                 <ChevronLeft className="size-6" aria-hidden="true" />
@@ -392,9 +413,9 @@ export default function App() {
               ref={(el) => {
                 sectionRefs.current[c.id] = el
               }}
-              className="px-5 pt-2 max-[359px]:px-3"
+              className="menu-category px-gutter max-[359px]:px-3"
             >
-              <h2 className="mb-3 font-serif text-title font-bold">{t(c.name)}</h2>
+              <h2 className="mb-3 text-title font-semibold">{t(c.name)}</h2>
               <div className="grid grid-cols-2 gap-3 max-[359px]:gap-x-2">
                 {dishes
                   .filter((d) => d.category === c.id)
@@ -417,14 +438,15 @@ export default function App() {
         {entered && !page && count > 0 && <CartBar count={count} total={quote.total / 100} lang={lang} bump={bump} onOpen={() => request?.status === 'waiting' ? setPage('orders') : setSheet('cart')} />}
 
         {/* ---------- Full-screen pages ---------- */}
-        {page === 'search' && (
+        {(page === 'search' || (page && typeof page === 'object' && page.returnTo === 'search')) && (
           <SearchOverlay
             lang={lang}
+            inactive={page !== 'search'}
             qtyOf={(id) => qtyByDish[id] ?? 0}
             orderedOf={(id) => orderedByDish[id] ?? 0}
             onClose={() => setPage(null)}
-            onOpen={(d) => setPage({ dish: d })}
-            onAdd={quickAdd}
+            onOpen={(d) => setPage({ dish: d, returnTo: 'search' })}
+            onAdd={(d) => quickAdd(d, 'search')}
           />
         )}
 
@@ -435,7 +457,7 @@ export default function App() {
             lang={lang}
             ordered={orderedByDish[page.dish.id] ?? 0}
             cartLines={lines.filter(line => line.dish.id === page.dish.id)}
-            onClose={() => setPage(null)}
+            onClose={() => setPage(page.returnTo ?? null)}
             onAdd={(opts, note, qty, originalKey) => {
               if (!canOrder) { setToast(lockedMessage); setPage(null); return }
               if (originalKey) {
@@ -454,11 +476,12 @@ export default function App() {
 
         {page === 'member' && <MemberPage lang={lang} member={member} loggedIn={memberLoggedIn} onRegister={(next) => { setMember(next); setMemberLoggedIn(true); setToast(uiText(lang, 'membership_ready_4f377')) }} onLogout={() => setMemberLoggedIn(false)} onClose={() => setPage(null)} />}
 
-        <div className="contents" inert={paymentResult !== null || tablePaymentOpen}>
+        <div className="contents" inert={paymentResult !== null || (tablePaymentOpen && !checkingPayment)}>
           {(page === 'confirm' || (tablePaymentOpen && pendingRound)) && (
             <ConfirmPage
               lines={lines}
-              expiresAt={pendingRound && !tablePaymentOpen && !paymentResult ? prepayExpiresAt : null}
+              expiresAt={pendingRound && !paymentResult ? prepayExpiresAt : null}
+              checkingPayment={checkingPayment}
               onCancelPayment={() => { setPaymentResult({ kind: 'cancelled' }); setPage('confirm') }}
               quote={pendingRound?.quote ?? reviewQuote ?? quote}
               repriced={repriced}
@@ -488,7 +511,25 @@ export default function App() {
             />
           )}
 
-          {page === 'my-orders' && <MyOrders rounds={request ? [request.round] : rounds} status={request?.status ?? (rounds.length ? 'accepted' : null)} total={request ? calculateBill([request.round], payments).total : bill.total} paid={bill.paid} settled={settled} manualSettlement={manualSettlement} table={table} canAddDishes={canOrder} lang={lang} onClose={() => setPage(null)} onDetails={() => { setDetailFromList(true); setPage('orders') }} onAddMore={() => setPage(null)} />}
+          {(page === 'my-orders' || (detailFromList && (page === 'orders' || tablePaymentOpen))) && (
+            <div className="contents" inert={page !== 'my-orders'}>
+              <MyOrders
+                rounds={request ? [request.round] : rounds}
+                status={request?.status ?? (rounds.length ? 'accepted' : null)}
+                total={request ? calculateBill([request.round], payments).total : bill.total}
+                paid={bill.paid}
+                settled={settled}
+                manualSettlement={manualSettlement}
+                table={table}
+                canAddDishes={canOrder}
+                lang={lang}
+                backDisabled={page !== 'my-orders'}
+                onClose={() => setPage(null)}
+                onDetails={() => { setDetailFromList(true); setPage('orders') }}
+                onAddMore={() => setPage(null)}
+              />
+            </div>
+          )}
 
           {(page === 'orders' || (tablePaymentOpen && !pendingRound)) && (
             <OrderDetail
@@ -505,6 +546,7 @@ export default function App() {
               status={request?.status ?? (rounds.length ? 'accepted' : null)}
               table={table}
               tablePrepay={!!table && prepay}
+              checkingPayment={checkingPayment}
               guests={guests}
               orderNote={orderNote}
               online={online}
@@ -533,6 +575,7 @@ export default function App() {
               }}
               onPay={() => {
                 if (!request && rounds.length && bill.remaining > 0) {
+                  setToast(null)
                   setLastPaidAmount(null)
                   setAnimateOrderSuccess(false)
                   setPage('pay')
@@ -549,7 +592,6 @@ export default function App() {
             resultSheet={paymentResult ? (
               <PaymentResultSheet
                 result={paymentResult}
-                expiresAt={pendingRound ? prepayExpiresAt : null}
                 cancelledOrder={paymentResult.kind === 'cancelled' && !!pendingRound && !!table}
                 lang={lang}
                 orderNo={ORDER_NO}
@@ -571,12 +613,12 @@ export default function App() {
             direct={!!table}
             directSessionKey={table ? paymentSessionKey : undefined}
             persistentAttempt={!!table && prepay}
-            onFailure={table ? (kind) => {
-              if (pendingRound) {
-                sessionStore.removeItem(paymentSessionKey)
-                setPaymentResult(prepayExpiresAt && Date.now() >= prepayExpiresAt ? { kind: 'expired' } : null)
-                setPage('confirm')
-              } else { setPaymentResult({ kind }); setPage('orders') }
+            onCheckingChange={table ? setCheckingPayment : undefined}
+            onUnconfirmed={table ? () => {
+              setCheckingPayment(false)
+              setPage(pendingRound ? 'confirm' : 'orders')
+              if (prepayExpiresAt && Date.now() >= prepayExpiresAt) setPaymentResult({ kind: 'expired' })
+              else setToast(t(strings.paymentUnconfirmed))
             } : undefined}
             tipsEnabled={storeRules.tips}
             orderNo={ORDER_NO}
@@ -596,8 +638,8 @@ export default function App() {
                 setCouponNotice(null)
               }
               if (table) {
-                if (pendingRound) { sessionStore.removeItem(paymentSessionKey); setPaymentResult(null) }
-                else setPaymentResult({ kind: 'success', amount: payment.amount })
+                sessionStore.removeItem(paymentSessionKey)
+                setCheckingPayment(false)
                 setPage('orders')
               } else {
                 setSettled(true)
@@ -615,24 +657,45 @@ export default function App() {
           </BottomSheet>
         )}
         {sheet === 'language' && (
-          <BottomSheet title={t(strings.language)} onClose={() => setSheet(null)}>
-            <div className="space-y-2">
-              {LANGS.map((l) => (
-                <ChoiceRow
-                  key={l.code}
-                  lang={l.attr}
-                  active={lang === l.code}
-                  leading={l.short}
-                  onClick={() => {
-                    setLang(l.code)
-                    localStorage.setItem('ordering-language', l.code)
-                    setSheet(null)
-                  }}
-                >
-                  {l.name}
-                </ChoiceRow>
-              ))}
-            </div>
+          <BottomSheet
+            modal
+            title={
+              <span className="flex items-center gap-2.5">
+                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-action/10 text-action" aria-hidden="true">
+                  <Languages className="size-[18px]" />
+                </span>
+                {t(strings.language)}
+              </span>
+            }
+            onClose={() => setSheet(null)}
+          >
+            {(dismiss) => (
+              <ul>
+                {LANGS.map((option) => (
+                  <li key={option.code} className="py-0.5">
+                    <button
+                      type="button"
+                      lang={option.attr}
+                      aria-pressed={lang === option.code}
+                      data-sheet-initial-focus={lang === option.code || undefined}
+                      className="flex min-h-button-lg w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-body aria-pressed:bg-action/10 aria-pressed:font-semibold aria-pressed:text-action focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-action active:bg-tile"
+                      onClick={() => {
+                        setLang(option.code)
+                        localStorage.setItem('ordering-language', option.code)
+                        dismiss()
+                      }}
+                    >
+                      {option.name}
+                      {lang === option.code && (
+                        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-action text-white" aria-hidden="true">
+                          <Check className="size-4" strokeWidth={2.5} />
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </BottomSheet>
         )}
 
@@ -655,6 +718,7 @@ export default function App() {
                   </div>
                   <Button
                     onClick={() => {
+                      setToast(null)
                       setReviewQuote(quote)
                       setRepriced(false)
                       setSheet(null)
@@ -709,12 +773,13 @@ export default function App() {
           </BottomSheet>
         )}
 
+        <span role="status" className="sr-only">{checkingPayment ? t(strings.paymentChecking) : toast}</span>
         {toast && (
           <div className="animate-pop absolute inset-x-0 top-14 z-[60] flex justify-center px-5">
-            <div className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-callout text-white shadow-float">
-              <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand">
+            <div aria-hidden="true" className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-callout text-white shadow-float">
+              {toast !== t(strings.paymentUnconfirmed) && <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-action">
                 <Check className="size-3" strokeWidth={3} />
-              </span>
+              </span>}
               {toast}
             </div>
           </div>

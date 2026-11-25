@@ -3,6 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, CupSoda, Search, ShoppingBag } from 'lucide-react'
 import { dishHints, dishes, dishOptions, dishTags, strings, type Dish, type L10n, type Lang, type OptionGroup } from '../data'
 import { useBackSwipe } from '../gestures'
+import { useExitMotion } from '../exit-motion'
 import { isCustomizable, optsLabel, unitPrice, type CartLine } from '../cart'
 import { AddButton, BackButton, Button, DishImage, Empty, OptionChip, Price, Stepper, Tag, TextButton, Thumb, textareaClass } from './ui'
 
@@ -49,13 +50,13 @@ export function DishCard({
   onAdd: () => void
 }) {
   return (
-    // h-full + mt-auto footer: cards in a row share height, long names grow the card instead of clipping
-    <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-white shadow-soft ${dish.soldOut ? 'opacity-60' : ''}`}>
+    // Cards share a row height. Long names can wrap without displacing the price row.
+    <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white ${dish.soldOut ? 'opacity-60' : ''}`}>
       <button onClick={onOpen} className="relative block overflow-hidden">
         <DishImage src={dish.image} alt={dish.name[lang]} className="aspect-[4/3] w-full transition duration-500 hover:scale-105" />
         <span className="absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-1">
           {ordered > 0 ? (
-            <Tag tone="brand">{strings.ordered[lang]} {ordered}</Tag>
+            <Tag tone="brand" className="rounded-full!">{strings.ordered[lang]} {ordered}</Tag>
           ) : (
             <span />
           )}
@@ -67,13 +68,13 @@ export function DishCard({
           </span>
         )}
       </button>
-      <button onClick={onOpen} className="mt-3 flex min-h-10 items-start px-3 text-left">
+      <button onClick={onOpen} className="mt-3 flex min-h-11 flex-col items-start px-3 text-left">
         <h3 className="break-words text-body font-semibold">{dish.name[lang]}</h3>
+        {dish.unit.en === '2 pcs' && <span className="mt-0.5 text-callout text-ink-2">{dish.unit[lang]}</span>}
       </button>
       <div className="mt-auto flex min-h-12 items-center gap-0.5 px-3 pb-2">
         <p className="flex min-w-0 flex-1 items-baseline gap-0.5 text-headline font-semibold whitespace-nowrap">
           <Price value={dish.price} className="shrink-0" />
-          {(dish.unit.en === 'basket' || dish.unit.en === '2 pcs') && <span className="truncate text-caption font-normal text-ink-2">/{dish.unit[lang]}</span>}
         </p>
         {!dish.soldOut && <DishAddButton dish={dish} lang={lang} qty={qty} onClick={onAdd} />}
       </div>
@@ -86,7 +87,7 @@ function DishAddButton({ dish, lang, qty, onClick }: { dish: Dish; lang: Lang; q
   if (isCustomizable(dish)) return (
     <button type="button" onClick={onClick} aria-label={`${action[lang]} · ${dish.name[lang]}${qty > 0 ? ` · ${strings.inCart[lang]} ×${qty}` : ''}`} className="group relative flex h-11 shrink-0 items-center justify-end rounded-full">
       {qty > 0 && <span className="-mr-2 flex h-7 items-center rounded-l-full bg-brand-soft pr-2.5 pl-2 text-caption font-semibold text-brand-strong tabular-nums">×{qty}</span>}
-      <span className="relative flex h-8 items-center justify-center rounded-full bg-brand px-3 text-caption font-semibold whitespace-nowrap text-white transition group-active:scale-95 group-active:bg-brand-strong">
+      <span className="relative flex h-8 items-center justify-center rounded-full bg-action px-3 text-caption font-semibold whitespace-nowrap text-white transition group-active:scale-95 group-active:bg-action-pressed">
         {lang === 'en' ? 'Options' : lang === 'zh' ? '选规格' : '選規格'}
       </span>
     </button>
@@ -116,7 +117,8 @@ export function DishPage({
   const [sel, setSel] = useState<Record<string, string[]>>(() =>
     Object.fromEntries(groups.map((g) => [g.id, initialLine ? g.options.filter(o => initialLine.opts.includes(o.id)).map(o => o.id) : g.type === 'single' ? [g.options[0].id] : []])),
   )
-  const swipe = useBackSwipe(onClose)
+  const { panel, dismiss } = useExitMotion(onClose, 'right')
+  const swipe = useBackSwipe(dismiss)
   const [note, setNote] = useState(initialLine?.note ?? '')
   const [noteOpen, setNoteOpen] = useState(false)
   const [n, setN] = useState(initialLine?.qty ?? 1)
@@ -140,9 +142,9 @@ export function DishPage({
     })
 
   return (
-    <div {...swipe} className="animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-white">
+    <div {...swipe} ref={panel} className="animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-white">
       {/* Pinned top-left, outside the scroll area, so it never covers content */}
-      <BackButton onImage onClick={onClose} className="absolute top-2 left-3 z-10 sm:pointer-fine:top-11" />
+      <BackButton onImage onClick={dismiss} className="absolute top-2 left-3 z-10 sm:pointer-fine:top-11" />
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
         <div className="bg-tile">
           <DishImage src={dish.image} alt={dish.name[lang]} className="aspect-[16/10] w-full" />
@@ -153,6 +155,11 @@ export function DishPage({
             {dish.tag && <DishTag kind={dish.tag} lang={lang} compact />}
             <h1 className="min-w-0 text-title leading-tight font-semibold">{dish.name[lang]}</h1>
           </div>
+          {(dish.unit.en === 'basket' || dish.unit.en === '2 pcs') && (
+            <p className="mt-1 text-callout text-ink-2">
+              {dish.unit.en === 'basket' && lang === 'en' ? 'Per basket' : dish.unit.en === 'basket' ? `每${dish.unit[lang]}` : dish.unit[lang]}
+            </p>
+          )}
         </div>
 
         <div className="dish-detail-sections bg-white px-5 pt-3">
@@ -212,7 +219,7 @@ export function DishPage({
           <span className="sr-only">{strings.subtotal[lang]}</span>
           <Price value={price * n} className="block text-title font-semibold" />
         </div>
-        <Button disabled={dish.soldOut} onClick={() => onAdd(opts, note, n, editingKey)} className="min-w-max flex-1 disabled:opacity-50 max-[359px]:basis-full">
+        <Button disabled={dish.soldOut} onClick={() => onAdd(opts, note, n, editingKey)} className="min-w-0 flex-1">
           {dish.soldOut ? t(strings.soldOut) : editingKey ? ({en: 'Save changes', hk: '儲存修改', zh: '保存修改'}[lang]) : t(strings.add)}
         </Button>
       </div>
@@ -222,6 +229,7 @@ export function DishPage({
 
 export function SearchOverlay({
   lang,
+  inactive = false,
   qtyOf,
   orderedOf,
   onClose,
@@ -229,6 +237,7 @@ export function SearchOverlay({
   onAdd,
 }: {
   lang: Lang
+  inactive?: boolean
   qtyOf: (id: string) => number
   orderedOf: (id: string) => number
   onClose: () => void
@@ -236,15 +245,16 @@ export function SearchOverlay({
   onAdd: (d: Dish) => void
 }) {
   const [q, setQ] = useState('')
-  const swipe = useBackSwipe(onClose)
+  const { panel, dismiss } = useExitMotion(onClose, 'right')
+  const swipe = useBackSwipe(inactive ? undefined : dismiss)
   const s = q.trim().toLowerCase()
   // Match across all three languages so a guest can type in any script.
   const results = dishes.filter(
     (d) => !s || [d.name.en.toLowerCase(), d.name.hk, d.name.zh, d.desc.en.toLowerCase()].some((v) => v.includes(s)),
   )
   return (
-    <div {...swipe} className="animate-fade absolute inset-0 z-50 flex touch-pan-y flex-col bg-white">
-      <div className="relative z-10 flex items-center gap-3 border-b border-line bg-white px-5 pt-3 pb-3 shadow-divider sm:pointer-fine:pt-14">
+    <div {...swipe} ref={panel} inert={inactive} className="animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-white">
+      <div className="relative z-10 flex items-center gap-3 border-b border-line bg-white px-5 pt-3 pb-3 sm:pointer-fine:pt-14">
         <label className="flex h-11 flex-1 items-center gap-2 rounded-md bg-tile px-4">
           <Search className="size-4.5 shrink-0 text-muted" />
           <input
@@ -255,7 +265,7 @@ export function SearchOverlay({
             className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted"
           />
         </label>
-        <TextButton tone="brand" size="body" weight="medium" className="min-w-11 shrink-0" onClick={onClose}>
+        <TextButton tone="brand" size="body" weight="medium" className="min-w-11 shrink-0" onClick={dismiss}>
           {strings.cancel[lang]}
         </TextButton>
       </div>
@@ -273,6 +283,7 @@ export function SearchOverlay({
                     <Thumb src={d.image} />
                     <span className="min-w-0">
                       <span className="block text-body font-medium">{d.name[lang]}</span>
+                      {d.unit.en === '2 pcs' && <span className="block text-callout text-ink-2">{d.unit[lang]}</span>}
                       <span className="mt-1 flex items-center gap-2">
                         <Price value={d.price} className="text-body font-semibold" />
                         {ordered > 0 && (
@@ -319,7 +330,7 @@ export function CartBar({ count, total, lang, bump, onOpen }: { count: number; t
         <button onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <span key={bump} className="animate-pop relative flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-ink">
             <ShoppingBag className="size-5" />
-            <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-white tabular-nums ring-2 ring-white">
+            <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-action px-1 text-caption font-semibold text-white tabular-nums ring-2 ring-white">
               {count}
             </span>
           </span>

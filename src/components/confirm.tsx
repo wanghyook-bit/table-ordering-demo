@@ -20,6 +20,7 @@ export function hasValidOrderContact(mode: Mode, contact: Contact) {
 export function ConfirmPage({
   lines,
   expiresAt,
+  checkingPayment = false,
   onCancelPayment,
   quote,
   repriced,
@@ -41,6 +42,7 @@ export function ConfirmPage({
 }: {
   lines: CartLine[]
   expiresAt?: number | null
+  checkingPayment?: boolean
   onCancelPayment?: () => void
   quote: PriceQuote
   repriced: boolean
@@ -75,12 +77,14 @@ export function ConfirmPage({
       className="confirm-design"
       title={t(strings.confirmTitle)}
       onBack={onBack}
+      backDisabled={checkingPayment}
+      animateBack={!expiresAt}
       footer={
         <>
           {repriced && <InlineAlert tone="pending" title={t(feeText.reprice)} className="mb-2" />}
           <div className="confirm-actions">
-            {expiresAt ? <Button variant="secondary" onClick={onCancelPayment} className="flex-1 cancel-payment">{uiText(lang, 'cancel_payment_2f54b')}</Button> : table && <Button variant="secondary" onClick={onAddMore} className="flex-1">{uiText(lang, 'add_dishes_c537b')}</Button>}
-            <Button onClick={onSubmit} disabled={!valid} className="flex-1">{expiresAt ? <>{uiText(lang, 'pay_550a8')} <PaymentCountdown expiresAt={expiresAt} lang={lang} variant="inline" /></> : prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}</Button>
+            {expiresAt ? <Button variant="secondary" onClick={onCancelPayment} disabled={checkingPayment} className="flex-1 cancel-payment">{uiText(lang, 'cancel_payment_2f54b')}</Button> : table && <Button variant="secondary" onClick={onAddMore} disabled={checkingPayment} className="flex-1">{uiText(lang, 'add_dishes_c537b')}</Button>}
+            <Button onClick={onSubmit} disabled={!valid || checkingPayment} className="flex-1">{checkingPayment ? t(strings.paymentChecking) : expiresAt ? <>{uiText(lang, 'pay_550a8')} <PaymentCountdown expiresAt={expiresAt} lang={lang} variant="inline" /></> : prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}</Button>
           </div>
         </>
       }
@@ -93,7 +97,7 @@ export function ConfirmPage({
 
       {table ? (
         <Section>
-          <div className="confirm-table"><div className="confirm-table-name"><span className="confirm-table-icon"><img src={`${import.meta.env.BASE_URL}confirm-assets/table.svg`} alt="" /></span><strong>{table}</strong></div><Button size="md" onClick={onSwitchTable}>{uiText(lang, 'switch_table_7b2a0')}</Button></div>
+          <div className="confirm-table"><div className="confirm-table-name"><span className="confirm-table-icon"><img src={`${import.meta.env.BASE_URL}confirm-assets/table.svg`} alt="" /></span><strong>{table}</strong></div><Button size="md" onClick={onSwitchTable} disabled={checkingPayment}>{uiText(lang, 'switch_table_7b2a0')}</Button></div>
         </Section>
       ) : !isAddOn ? (
         <>

@@ -5,7 +5,7 @@ const u = (id: string) => `${import.meta.env.BASE_URL}dishes/${id}.webp`
 
 export const HERO = `${import.meta.env.BASE_URL}assets/welcome-hero.webp`
 
-export const HOME_HERO = `${import.meta.env.BASE_URL}assets/home-banner-localized.webp`
+export const HOME_HERO = `${import.meta.env.BASE_URL}assets/hong-kong-cafe-banner.webp`
 export const HOME_AVATAR = `${import.meta.env.BASE_URL}assets/member-avatar.png`
 
 export type Category = { id: string; name: L10n; thumb: string }
@@ -384,9 +384,11 @@ export const strings = {
   amountOverBalance: L('The amount cannot exceed the remaining amount.', '付款金額不可超過剩餘應付。', '付款金额不可超过剩余应付。'),
   balanceAfterPayment: L('Remaining after payment', '付款後剩餘', '付款后剩余'),
   confirmingPayment: L('Confirming your payment', '正在確認付款結果', '正在确认付款结果'),
+  paymentChecking: L('Checking payment…', '付款結果確認中', '支付结果确认中'),
+  paymentUnconfirmed: L('Payment not yet confirmed', '暫未確認付款', '暂未确认付款'),
   paymentLockHint: L('You can add dishes once the result is confirmed.', '付款結果確認後可繼續加菜', '付款结果确认后可继续加菜'),
   providerDemo: L('Simulated payment provider', '第三方付款模擬', '第三方付款模拟'),
-  providerSuccess: L('Simulate successful payment', '模擬付款成功', '模拟付款成功'),
+  providerSuccess: L('Simulate success', '模擬付款成功', '模拟付款成功'),
   providerCancel: L('Return without paying', '未付款返回', '未付款返回'),
   contact: L('Contact for pickup', '取餐聯絡資料', '取餐联系方式'),
   namePh: L('Name', '稱呼', '称呼'),
