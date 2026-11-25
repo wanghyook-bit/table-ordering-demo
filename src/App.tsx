@@ -729,7 +729,9 @@ export default function App() {
             footer={
               <div className="flex gap-3">
                 <Button variant="secondary" className="flex-1" onClick={cancelPendingOrder}>{uiText(lang, 'cancel_order_aba37')}</Button>
-                <Button className="flex-1" onClick={submitOrder}>{uiText(lang, 'continue_payment')}</Button>
+                <Button className="flex-1" onClick={submitOrder} aria-label={uiText(lang, 'continue_payment')}>
+                  {lang === 'en' ? t(strings.continueOrder) : uiText(lang, 'continue_payment')}
+                </Button>
               </div>
             }
           >

@@ -193,7 +193,7 @@ export function OrderDetail({
     <Page className="order-design" title={uiText(lang, 'order_details_22864')} onBack={onClose} backDisabled={checkingPayment} footer={status === 'accepted' && (canAddDishes || showPay || allPaid) && (
       <div className="confirm-actions">
         {canAddDishes && <Button variant="secondary" onClick={onAddMore} disabled={checkingPayment} className="flex-1">{t(strings.addDishes)}</Button>}
-        {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid || checkingPayment} className="flex-1">{t(checkingPayment ? strings.paymentChecking : strings.pay)}</Button>}
+        {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid || checkingPayment} aria-label={checkingPayment ? t(strings.paymentChecking) : undefined} className="flex-1">{t(checkingPayment ? strings.paymentCheckingShort : strings.pay)}</Button>}
       </div>
     )}>
       <Section>
@@ -393,7 +393,7 @@ export function OrderDetail({
 export function OrderAmounts({ quote, tip = 0, total, paid, remaining, lang, onPaymentHistory, showSummary = true }: { quote: Pick<PriceQuote, 'subtotal' | 'service' | 'packaging' | 'savings' | 'total'>; tip?: number; total: number; paid?: number; remaining: number; lang: Lang; onPaymentHistory?: () => void; showSummary?: boolean }) {
   return <dl className="order-amounts">
     <div className="amount-rows order-amount-breakdown">
-      <Row k={lang === 'en' ? 'Items total' : lang === 'zh' ? '商品总额' : '商品總額'} v={money(quote.subtotal / 100)} />
+      <Row k={lang === 'en' ? strings.subtotal.en : lang === 'zh' ? '商品总额' : '商品總額'} v={money(quote.subtotal / 100)} />
       {quote.service > 0 && <Row k={strings.service[lang]} v={money(quote.service / 100)} />}
       {quote.packaging > 0 && <Row k={strings.packagingFee[lang]} v={money(quote.packaging / 100)} />}
       {tip > 0 && <Row k={strings.tip[lang]} v={money(tip / 100)} />}
