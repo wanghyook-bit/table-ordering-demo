@@ -225,3 +225,15 @@
 .confirm-note-toggle span { display:flex; align-items:center; gap:8px; color:#4a4f58; font-size:14px; min-width:0; }
 .confirm-actions button:disabled { background:#ddd9d5; color:#fff; opacity:1; }
 :is(.confirm-design,.order-design) > header h1 { font-size:20px; line-height:23px; }
+
+/* Order-detail amounts and metadata, aligned with the approved screen. */
+.order-amount-breakdown, .order-amount-summary, .order-information { display:flex; flex-direction:column; gap:4px; }
+.order-amount-breakdown > div, .order-information > div { font-size:14px; line-height:21.75px; }
+.order-amount-breakdown dd, .order-information dd { font-size:15px; }
+.order-amount-summary { margin-top:8px; padding-top:8px; border-top:0.5px solid #efece9; }
+.order-amount-summary > div { font-size:15px; line-height:23px; }
+.order-amount-summary dd { font-size:17px; }
+.order-design section:has(.order-amounts) { padding-bottom:8px; border-bottom:0.5px solid #efece9; }
+.order-design section:has(.order-success) { padding-top:24px; padding-bottom:12px; }
+.confirm-design .order-amount-summary > div { font-size:15px; line-height:23px; }
+.confirm-design .order-amount-summary dd { font-size:17px; }

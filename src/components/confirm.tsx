@@ -4,7 +4,7 @@ import { strings, type L10n, type Lang } from '../data'
 import type { CartLine } from '../cart'
 import type { PriceQuote } from '../pricing'
 import type { Mode } from './Welcome'
-import { ItemList, calculateBill, countLabel, itemCount, type Round, type PaymentRecord } from './orders'
+import { ItemList, OrderAmounts, calculateBill, countLabel, itemCount, type Round, type PaymentRecord } from './orders'
 import { StoreCard } from './store'
 import { Button, InlineAlert, OptionChip, Page, Row, Section, TextButton, fieldClass, money, textareaClass } from './ui'
 import { FeeRows, feeText } from './pricing'
@@ -125,18 +125,7 @@ export function ConfirmPage({
         </div>
       </Section>
       <Section title={lang === 'en' ? 'Amount details' : '金額明細'}>
-        {combined && combined.paid > 0 ? (
-          <>
-            <FeeRows quote={combined.quote} tip={combined.tip} lang={lang} />
-            <dl className="mt-3 space-y-2 border-t border-line pt-3">
-              <Row k={t(feeText.estimate)} v={money(combined.total)} />
-              <Row k={t(strings.confirmedPaid)} v={money(combined.paid)} />
-              <Row k={t(strings.balanceDue)} v={money(combined.remaining)} strong />
-            </dl>
-          </>
-        ) : (
-          <FeeRows quote={combined?.quote ?? quote} tip={combined?.tip} lang={lang} totalLabel={t(feeText.estimate)} />
-        )}
+        <OrderAmounts quote={combined?.quote ?? quote} tip={combined?.tip} total={combined?.total ?? quote.total / 100} paid={combined && combined.paid > 0 ? combined.paid : undefined} remaining={combined?.remaining ?? quote.total / 100} lang={lang} />
       </Section>
       {table && <Section><button type="button" className="confirm-note-toggle" onClick={() => setNoteOpen(!noteOpen)} aria-expanded={noteOpen}><strong>{lang === 'en' ? 'Note' : '備註'}</strong><span>{orderNote || (lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求')} <ChevronDown size={16} /></span></button>{noteOpen && <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)} rows={2} placeholder={lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求'} className={`${textareaClass} mt-2`} />}</Section>}
     </Page>

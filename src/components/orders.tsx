@@ -145,7 +145,7 @@ export function OrderDetail({
     )}>
       <Section>
         {allPaid ? <div className="order-success"><img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} alt="" /><strong>{lang === 'en' ? 'Payment successful' : '付款成功'}</strong></div> : <StatusPanel variant="row" tone="pending" icon={<Clock className="size-5" aria-hidden="true" />} title={title} description={description} />}
-        <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode="dine" guests={guests} lang={lang} /></div>
+        {!allPaid && <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode="dine" guests={guests} lang={lang} /></div>}
       </Section>
       <Section
         title={lang === 'en' ? 'Items' : '餐品詳情'}
@@ -166,14 +166,15 @@ export function OrderDetail({
         </div>
       </Section>
       <Section title={lang === 'en' ? 'Amount details' : '金額明細'}>
-        <FeeRows quote={bill.quote} tip={bill.tip} lang={lang} totalLabel={t(strings.billTotal)} />
-        <dl className="mt-3 space-y-2 border-t border-line pt-3">
-          <Row k={payments.length > 0 ? <button type="button" onClick={() => setHistoryOpen(true)} className="inline-flex items-center gap-1">{t(strings.confirmedPaid)} <ChevronRight size={16} /></button> : t(strings.confirmedPaid)} v={money(paid)} strong />
-          <Row k={t(strings.balanceDue)} v={<span className="text-[#ff7a30]">{money(remaining)}</span>} strong />
-        </dl>
+        <OrderAmounts quote={bill.quote} tip={bill.tip} total={total} paid={paid} remaining={remaining} lang={lang} onPaymentHistory={payments.length ? () => setHistoryOpen(true) : undefined} />
       </Section>
       <Section title={lang === 'en' ? 'Order information' : '訂單資訊'}>
-        <dl className="space-y-2"><Row k={lang === 'en' ? 'Order number' : '訂單號'} v={`#${orderNo}`} />{orderNote && <Row k={lang === 'en' ? 'Order note' : '訂單備註'} v={orderNote} />}</dl>
+        <dl className="order-information">
+          <Row k={lang === 'en' ? 'Order number' : '訂單號'} v={`#${orderNo}`} />
+          {rounds[0]?.time && <Row k={lang === 'en' ? 'Order time' : '下單時間'} v={rounds[0].time} />}
+          {allPaid && <Row k={lang === 'en' ? 'Table' : '桌台'} v={table} />}
+          {orderNote && <Row k={lang === 'en' ? 'Order note' : '訂單備註'} v={orderNote} />}
+        </dl>
         {manualSettlement && allPaid && !settled && <TextButton tone="muted" underline className="mt-3" onClick={onSettle}>{lang === 'en' ? 'Simulate staff settlement' : '模擬店員結算'}</TextButton>}
       </Section>
       {historyOpen && (
@@ -330,6 +331,23 @@ export function OrderDetail({
       )}
     </Page>
   )
+}
+
+export function OrderAmounts({ quote, tip = 0, total, paid, remaining, lang, onPaymentHistory }: { quote: Pick<PriceQuote, 'subtotal' | 'service' | 'packaging' | 'savings' | 'total'>; tip?: number; total: number; paid?: number; remaining: number; lang: Lang; onPaymentHistory?: () => void }) {
+  return <dl className="order-amounts">
+    <div className="order-amount-breakdown">
+      <Row k={lang === 'en' ? 'Items total' : lang === 'zh' ? '商品总额' : '商品總額'} v={money(quote.subtotal / 100)} />
+      {quote.service > 0 && <Row k={strings.service[lang]} v={money(quote.service / 100)} />}
+      {quote.packaging > 0 && <Row k={strings.packagingFee[lang]} v={money(quote.packaging / 100)} />}
+      {tip > 0 && <Row k={strings.tip[lang]} v={money(tip / 100)} />}
+      {quote.savings.map((saving) => <Row key={saving.key} k={saving.name[lang]} v={saving.included ? `${feeText.save[lang]} ${money(saving.cents / 100)} · ${feeText.included[lang]}` : `−${money(saving.cents / 100)}`} />)}
+    </div>
+    <div className="order-amount-summary">
+      <Row k={strings.billTotal[lang]} v={money(total)} strong />
+      {paid !== undefined && <Row k={onPaymentHistory ? <button type="button" onClick={onPaymentHistory} className="inline-flex items-center gap-1">{strings.confirmedPaid[lang]} <ChevronRight size={16} /></button> : strings.confirmedPaid[lang]} v={money(paid)} strong />}
+      <Row k={strings.balanceDue[lang]} v={<span className="text-[#ff7a30]">{money(remaining)}</span>} strong />
+    </div>
+  </dl>
 }
 
 function PaymentHistory({ payments, lang }: { payments: PaymentRecord[]; lang: Lang }) {
