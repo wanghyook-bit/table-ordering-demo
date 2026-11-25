@@ -50,7 +50,7 @@ export function FeeRows({ quote, lang, tip = 0, totalLabel, total = quote.total 
   total?: number
 }) {
   return (
-    <dl className="space-y-2">
+    <dl className="amount-rows">
       <Row k={strings.subtotal[lang]} v={money(quote.subtotal / 100)} />
       {quote.service > 0 && <Row k={strings.service[lang]} v={money(quote.service / 100)} />}
       {quote.packaging > 0 && <Row k={strings.packagingFee[lang]} v={money(quote.packaging / 100)} />}

@@ -1,8 +1,9 @@
 import { uiText } from '../i18n'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, CircleAlert, ChevronRight, CreditCard, Loader2, Nfc, QrCode, Smartphone, X } from 'lucide-react'
 import { strings, type L10n, type Lang } from '../data'
 import { useBackSwipe } from '../gestures'
+import { useExitMotion } from '../exit-motion'
 import type { PaymentRecord } from './orders'
 import { feeText } from './pricing'
 import { ActionBar, BottomSheet, Button, ChoiceRow, IconButton, InlineAlert, choiceBase, choiceState, money, Page, Row, Section, StatusPanel, TextButton } from './ui'
@@ -49,7 +50,8 @@ export function PaymentFlow({
   direct = false,
   directSessionKey,
   persistentAttempt = false,
-  onFailure,
+  onCheckingChange,
+  onUnconfirmed,
   resultSheet,
   expiresAt, onExpired,
 }: {
@@ -63,7 +65,8 @@ export function PaymentFlow({
   direct?: boolean
   directSessionKey?: string
   persistentAttempt?: boolean
-  onFailure?: (result: 'failed' | 'cancelled') => void
+  onCheckingChange?: (checking: boolean) => void
+  onUnconfirmed?: () => void
   resultSheet?: ReactNode
   expiresAt?: number | null
   onExpired?: () => void
@@ -76,15 +79,18 @@ export function PaymentFlow({
     if (directSessionKey) {
       try { stored = JSON.parse((persistentAttempt ? localStorage : sessionStorage).getItem(directSessionKey) || 'null') } catch { /* Start a new attempt if storage is unreadable. */ }
     }
+    const cents = Math.round(balance * 100)
+    if (stored?.cents !== cents) stored = null
     const attempt = {
       id: stored?.id ?? `table-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       orderNo,
-      cents: stored?.cents ?? Math.round(balance * 100),
+      cents,
       tip: 0,
       method: { id: 'online', icon: <QrCode className="size-5" />, name: L('Online payment', '線上支付', '线上支付') },
     }
-    if (stored?.result) return { kind: 'polling', attempt, result: stored.result }
-    if (stored?.awaitingResult) return { kind: 'pending', attempt }
+    if (stored?.result || stored?.awaitingResult) {
+      return { kind: 'polling', attempt, result: stored.result === 'success' ? 'success' : 'unknown' }
+    }
     return { kind: 'redirect', attempt }
   })
   const saveDirectAttempt = (attempt: Attempt, state: Pick<StoredAttempt, 'result' | 'awaitingResult'> = {}) => {
@@ -94,9 +100,27 @@ export function PaymentFlow({
     if (!resultSheet && direct && stage.kind === 'redirect') saveDirectAttempt(stage.attempt, { awaitingResult: true })
   }, [direct, directSessionKey, stage])
 
+  useLayoutEffect(() => {
+    if (direct) onCheckingChange?.(!resultSheet && stage.kind === 'polling')
+  }, [direct, onCheckingChange, resultSheet, stage.kind])
+
+  const successRef = useRef(onSuccess)
+  successRef.current = onSuccess
+  const unconfirmedRef = useRef(onUnconfirmed)
+  unconfirmedRef.current = onUnconfirmed
+
+  const completePayment = (attempt: Attempt) => successRef.current({
+    id: attempt.id, orderNo: attempt.orderNo, methodId: attempt.method.id,
+    name: attempt.method.name, amount: attempt.cents / 100, tip: attempt.tip, paidAt: new Date(),
+  })
+
   const receiveResult = (attempt: Attempt, result: Result) => {
-    // Preserve the gateway reply before rendering the confirmation screen.
-    if (direct) saveDirectAttempt(attempt, { result })
+    if (direct) {
+      // The table flow only receives a success notification from the gateway.
+      result = result === 'success' ? 'success' : 'unknown'
+      saveDirectAttempt(attempt, { result })
+      if (result === 'success') { completePayment(attempt); return }
+    }
     setStage({ kind: 'polling', attempt, result })
   }
   const [clock, setClock] = useState(Date.now())
@@ -123,26 +147,22 @@ export function PaymentFlow({
   const tip = canTip ? selectedTip : 0
   const charge = amountCents === null ? null : amountCents + tip
 
-  const successRef = useRef(onSuccess)
-  successRef.current = onSuccess
-
   useEffect(() => {
     if (resultSheet || stage.kind !== 'polling') return
     const { attempt, result } = stage
     const timer = setTimeout(() => {
       if (result === 'success') {
-        successRef.current({
-          id: attempt.id, orderNo: attempt.orderNo, methodId: attempt.method.id,
-          name: attempt.method.name, amount: attempt.cents / 100, tip: attempt.tip, paidAt: new Date(),
-        })
+        completePayment(attempt)
+      } else if (direct) {
+        saveDirectAttempt(attempt)
+        unconfirmedRef.current?.()
       } else if (result === 'unknown') {
-        if (direct) saveDirectAttempt(attempt, { awaitingResult: true })
         setStage({ kind: 'pending', attempt })
       } else {
-        if (onFailure) onFailure(result)
-        else { setNotice(result); setStage({ kind: 'review' }) }
+        setNotice(result)
+        setStage({ kind: 'review' })
       }
-    }, direct ? 700 : 1800)
+    }, direct && result === 'success' ? 0 : 1800)
     return () => clearTimeout(timer)
   }, [stage])
 
@@ -154,24 +174,14 @@ export function PaymentFlow({
         method={stage.attempt.method}
         amount={stage.attempt.cents / 100}
         expiresAt={expiresAt}
+        showCancelPayment={direct}
         lang={lang}
         onReturn={(result) => receiveResult(stage.attempt, result)}
       />
     )
   }
 
-  if (direct && (stage.kind === 'polling' || stage.kind === 'pending')) {
-    const { attempt } = stage
-    return (
-      <PaymentResultSheet
-        result={{ kind: stage.kind, amount: attempt.cents / 100 }}
-        lang={lang}
-        orderNo={orderNo}
-        expiresAt={expiresAt}
-        onResolve={stage.kind === 'pending' ? (result) => receiveResult(attempt, result) : undefined}
-      />
-    )
-  }
+  if (direct) return null
 
   return (
     <Page
@@ -289,29 +299,21 @@ export function PaymentFlow({
   )
 }
 
-export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, onResolve, expiresAt, cancelledOrder = false }: {
-  result: TablePaymentResult | { kind: 'polling' | 'pending'; amount: number }
+export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, cancelledOrder = false }: {
+  result: TablePaymentResult
   lang: Lang
   orderNo: number
   onClose?: () => void
   onRetry?: () => void
-  onResolve?: (result: Exclude<Result, 'unknown'>) => void
-  expiresAt?: number | null
   cancelledOrder?: boolean
 }) {
   const t = (s: L10n) => s[lang]
   const success = result.kind === 'success'
   const failed = result.kind === 'failed'
-  const checking = result.kind === 'polling'
-  const pending = result.kind === 'pending'
-  const title = checking ? t(strings.confirmingPayment)
-    : pending ? t(L('Payment not confirmed', '付款結果未確認', '付款结果未确认'))
-    : result.kind === 'expired' ? t(L('Payment expired', '支付已超時', '支付已超时'))
+  const title = result.kind === 'expired' ? t(L('Payment expired', '支付已超時', '支付已超时'))
     : success ? t(L('Payment successful', '付款成功', '付款成功'))
     : failed ? t(L('Payment failed', '付款失敗', '付款失败')) : t(strings.payCancelled)
-  const icon = checking ? <Loader2 className="size-5 animate-spin" aria-hidden="true" />
-    : pending ? <CircleAlert className="size-5" aria-hidden="true" />
-    : success ? <Check className="size-5" aria-hidden="true" />
+  const icon = success ? <Check className="size-5" aria-hidden="true" />
     : failed ? <CircleAlert className="size-5" aria-hidden="true" /> : <X className="size-5" aria-hidden="true" />
   return (
     <BottomSheet
@@ -326,22 +328,6 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, on
           <Row k={t(L('Order number', '訂單號', '订单号'))} v={`#${orderNo}`} />
           <Row strong k={t(L('Paid this time', '本次付款', '本次付款'))} v={money(result.amount)} />
         </dl>
-      ) : result.kind === 'polling' || result.kind === 'pending' ? (
-        <div className="space-y-3 py-2">
-          <dl><Row strong k={t(L('Paying now', '本次付款', '本次付款'))} v={money(result.amount)} /></dl>
-          {pending && expiresAt && <PaymentCountdown expiresAt={expiresAt} lang={lang} />}
-          {pending && <p className="text-callout text-ink-2">{t(L('Wait for the gateway to confirm before paying again.', '請等待支付網關確認，避免重複付款。', '请等待支付网关确认，避免重复付款。'))}</p>}
-          {onResolve && (
-            <div className="space-y-2 border-t border-line pt-3">
-              <p className="text-callout text-ink-2">{t(L('Simulated gateway', '模擬支付網關', '模拟支付网关'))}</p>
-              <div className="flex flex-wrap gap-2">
-                <Button size="md" variant="secondary" onClick={() => onResolve('success')}>{t(L('Simulate confirmed payment', '模擬確認成功', '模拟确认成功'))}</Button>
-                <Button size="md" variant="secondary" onClick={() => onResolve('failed')}>{t(L('Simulate confirmed failure', '模擬確認失敗', '模拟确认失败'))}</Button>
-                <Button size="md" variant="secondary" onClick={() => onResolve('cancelled')}>{t(L('Simulate confirmed cancellation', '模擬確認取消', '模拟确认取消'))}</Button>
-              </div>
-            </div>
-          )}
-        </div>
       ) : cancelledOrder ? (
         <p className="py-2 text-callout text-ink-2">{t(L('Payment and the pending order were cancelled. Please order again.', '付款及待支付訂單已取消，請重新點餐。', '付款及待支付订单已取消，请重新点餐。'))}</p>
       ) : result.kind === 'expired' ? (
@@ -360,21 +346,30 @@ function ThirdPartyPage({
   method,
   amount,
   expiresAt,
+  showCancelPayment,
   lang,
   onReturn,
 }: {
   method: Method
   amount: number
   expiresAt?: number | null
+  showCancelPayment: boolean
   lang: Lang
   onReturn: (result: Result) => void
 }) {
   const t = (s: L10n) => s[lang]
-  const swipe = useBackSwipe(() => onReturn('cancelled'))
+  const returnResult = useRef<Result | null>(null)
+  const { panel, dismiss } = useExitMotion(() => onReturn(returnResult.current ?? 'cancelled'), 'right')
+  const returnToOrder = (result: Result) => {
+    if (!showCancelPayment) { onReturn(result); return }
+    returnResult.current ??= result
+    dismiss()
+  }
+  const swipe = useBackSwipe(() => returnToOrder('cancelled'))
   return (
-    <div {...swipe} className="animate-sheet absolute inset-0 z-[52] flex touch-pan-y flex-col bg-tile">
+    <div {...swipe} ref={panel} className={`${showCancelPayment ? 'animate-slide' : 'animate-sheet'} absolute inset-0 z-[52] flex touch-pan-y flex-col bg-tile`}>
       <header className="flex items-center justify-between px-5 pt-12 pb-3">
-        <IconButton variant="plain" label={t(strings.providerCancel)} onClick={() => onReturn('cancelled')}>
+        <IconButton variant="plain" label={t(strings.providerCancel)} onClick={() => returnToOrder('cancelled')}>
           <X className="size-5" />
         </IconButton>
         <span className="text-body font-semibold">{t(strings.providerDemo)}</span>
@@ -387,11 +382,18 @@ function ThirdPartyPage({
         {expiresAt && <PaymentCountdown expiresAt={expiresAt} lang={lang} />}
       </div>
       <div className="space-y-3 px-5 pb-8">
-        <Button variant="dark" onClick={() => onReturn('success')} className="w-full">
-          {t(strings.providerSuccess)}
-        </Button>
-        <TextButton tone="muted" underline className="w-full py-2 underline-offset-4" onClick={() => onReturn('unknown')}>{uiText(lang, 'return_without_a_result_7a3a9')}</TextButton>
-        <TextButton tone="muted" underline className="w-full py-2 underline-offset-4" onClick={() => onReturn('failed')}>
+        <div className="flex gap-3">
+          {showCancelPayment && (
+            <Button variant="secondary" onClick={() => returnToOrder('cancelled')} className="min-w-0 flex-1 border border-line bg-white px-3!">
+              {uiText(lang, 'cancel_payment_2f54b')}
+            </Button>
+          )}
+          <Button variant="dark" onClick={() => onReturn('success')} className="min-w-0 flex-1 px-3!">
+            {t(strings.providerSuccess)}
+          </Button>
+        </div>
+        <TextButton tone="muted" underline className="w-full py-2 underline-offset-4" onClick={() => returnToOrder('unknown')}>{uiText(lang, 'return_without_a_result_7a3a9')}</TextButton>
+        <TextButton tone="muted" underline className="w-full py-2 underline-offset-4" onClick={() => returnToOrder('failed')}>
           {t(strings.simulateFail)}
         </TextButton>
       </div>

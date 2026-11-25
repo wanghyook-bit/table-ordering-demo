@@ -9,9 +9,10 @@ import { uiText } from '../i18n'
  *   colour   brand = action + brand emphasis only · success / pending / info / danger = status
  *   sizes    icon buttons 44 · quantity circles 32 · list thumb 56
  */
-import { createContext, useContext, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { createContext, useContext, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
 import { AlertCircle, Check, ChevronLeft, Info, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { useBackSwipe, useSheetSwipe } from '../gestures'
+import { useExitMotion } from '../exit-motion'
 import type { Lang } from '../data'
 
 export const LanguageContext = createContext<Lang>('hk')
@@ -84,7 +85,7 @@ export const LANGS: { code: Lang; short: string; name: string; attr: string }[] 
 
 type BtnVariant = 'primary' | 'secondary' | 'warm' | 'dark'
 const btnVariant: Record<BtnVariant, string> = {
-  primary: 'bg-brand text-white active:bg-brand-strong',
+  primary: 'bg-action text-white active:bg-action-pressed',
   secondary: 'bg-tile text-ink active:bg-line',
   warm: 'glass-entry border border-white/65 text-white active:ring-1 active:ring-white/80',
   dark: 'bg-ink text-white active:bg-black',
@@ -100,7 +101,7 @@ export function Button({
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center gap-2 rounded-full text-center font-medium leading-tight transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 ${
+      className={`inline-flex items-center justify-center gap-2 rounded-full text-center font-medium leading-tight transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action disabled:pointer-events-none disabled:bg-disabled disabled:text-ink-2 disabled:active:scale-100 ${
         size === 'lg' ? 'min-h-button-lg px-5 text-body' : 'min-h-11 px-4 text-callout'
       } ${btnVariant[variant]} ${className}`}
     >
@@ -113,7 +114,7 @@ export function Button({
 
 type TextTone = 'brand' | 'brandStrong' | 'neutral' | 'muted'
 const textTone: Record<TextTone, string> = {
-  brand: 'text-brand',
+  brand: 'text-action',
   brandStrong: 'text-brand-strong',
   neutral: 'text-ink',
   muted: 'text-ink-2',
@@ -174,10 +175,10 @@ export function IconButton({
   )
 }
 
-export function BackButton({ onClick, onImage = false, className = '' }: { onClick: () => void; onImage?: boolean; className?: string }) {
+export function BackButton({ onClick, onImage = false, disabled = false, className = '' }: { onClick: () => void; onImage?: boolean; disabled?: boolean; className?: string }) {
   const lang = useContext(LanguageContext)
   return (
-    <button type="button" aria-label={accessibilityText.back[lang]} onClick={onClick} className={`grid size-11 shrink-0 place-items-center rounded-full active:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-40 ${onImage ? 'text-white' : 'text-ink'} ${className}`}>
+    <button type="button" aria-label={accessibilityText.back[lang]} onClick={onClick} disabled={disabled} className={`grid size-11 shrink-0 place-items-center rounded-full active:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-40 ${onImage ? 'text-white' : 'text-ink'} ${className}`}>
       <ChevronLeft className={`size-6 ${onImage ? 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]' : ''}`} />
     </button>
   )
@@ -186,7 +187,7 @@ export function BackButton({ onClick, onImage = false, className = '' }: { onCli
 export function Badge({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <span
-      className={`flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand px-1 text-caption font-semibold text-white tabular-nums ring-2 ring-white ${className}`}
+      className={`flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-action px-1 text-caption font-semibold text-white tabular-nums ring-2 ring-white ${className}`}
     >
       {children}
     </span>
@@ -218,7 +219,7 @@ export function Stepper({ qty, onMinus, onPlus, min = 0 }: { qty: number; onMinu
         aria-label={accessibilityText.increase[lang]}
         className={buttonClass}
       >
-        <span className="grid size-8 place-items-center rounded-full bg-brand-soft text-brand transition group-active:bg-brand/20">
+        <span className="grid size-8 place-items-center rounded-full bg-brand-soft text-action transition group-active:bg-brand/20">
           <Plus className="size-4" strokeWidth={2.25} />
         </span>
       </button>
@@ -232,10 +233,10 @@ export function AddButton({ onClick, label, qty }: { onClick: () => void; label:
     <button
       onClick={onClick}
       aria-label={label}
-      className="group relative flex h-11 min-w-10 shrink-0 items-center justify-end rounded-full"
+      className="group relative flex h-11 min-w-11 shrink-0 items-center justify-end rounded-full"
     >
       {qty > 0 && <span className="-mr-2 flex h-7 items-center rounded-l-full bg-brand-soft pr-2.5 pl-2 text-caption font-semibold text-brand-strong tabular-nums">×{qty}</span>}
-      <span className="relative grid size-8 place-items-center rounded-full bg-brand text-white transition group-active:scale-95 group-active:bg-brand-strong">
+      <span className="relative grid size-8 place-items-center rounded-full bg-action text-white transition group-active:scale-95 group-active:bg-action-pressed">
         <Plus className="size-4" strokeWidth={2.5} />
       </span>
     </button>
@@ -246,8 +247,8 @@ export function AddButton({ onClick, label, qty }: { onClick: () => void; label:
 
 type TagTone = 'brand' | 'solid' | 'neutral' | 'overlay' | 'success' | 'pending' | 'info' | 'danger'
 const tagTone: Record<TagTone, string> = {
-  brand: 'bg-brand-soft text-brand',
-  solid: 'bg-brand text-white',
+  brand: 'bg-brand-soft text-action',
+  solid: 'bg-action text-white',
   neutral: 'bg-tile text-ink-2',
   overlay: 'bg-black/35 text-white backdrop-blur-md',
   success: 'bg-success-soft text-success',
@@ -325,34 +326,91 @@ export function BottomSheet({
   children,
   footer,
   headerActions,
+  modal = false,
 }: {
   title: ReactNode
   titleAccessory?: ReactNode
   onClose?: () => void
-  children: ReactNode
+  children: ReactNode | ((dismiss: () => void) => ReactNode)
   footer?: ReactNode
   headerActions?: ReactNode
+  modal?: boolean
 }) {
   const lang = useContext(LanguageContext)
   const [expanded, setExpanded] = useState(false)
-  const swipe = useSheetSwipe(() => onClose?.(), () => setExpanded(true))
+  const layer = useRef<HTMLDivElement>(null)
+  const titleId = useId()
+  const { panel, backdrop, dismiss } = useExitMotion(onClose, 'down')
+  const swipe = useSheetSwipe(dismiss, () => setExpanded(true))
+
+  useLayoutEffect(() => {
+    const element = panel.current
+    const root = layer.current
+    if (!modal || !element || !root?.parentElement) return
+
+    const trigger = document.activeElement
+    const background = Array.from(root.parentElement.children).filter(
+      (sibling): sibling is HTMLElement => sibling instanceof HTMLElement && sibling !== root && !sibling.inert,
+    )
+    background.forEach((sibling) => { sibling.inert = true })
+    const initial = element.querySelector<HTMLElement>('[data-sheet-initial-focus]') ?? element
+    initial.focus({ preventScroll: true })
+
+    return () => {
+      background.forEach((sibling) => { sibling.inert = false })
+      if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus({ preventScroll: true })
+    }
+  }, [modal, panel])
+
+  const handleModalKey = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && onClose) {
+      event.preventDefault()
+      event.stopPropagation()
+      dismiss()
+      return
+    }
+    if (event.key !== 'Tab') return
+
+    const stops = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]'))
+      .filter((control) => control.tabIndex >= 0 && !control.closest('[inert]') && control.getClientRects().length > 0)
+    const first = stops[0]
+    const last = stops[stops.length - 1]
+    const active = document.activeElement
+    const boundary = event.shiftKey ? first : last
+    if (active instanceof HTMLElement && stops.includes(active) && active !== boundary) return
+
+    event.preventDefault()
+    const next = event.shiftKey ? last : first
+    next?.focus()
+  }
+
   return (
-    <div {...(onClose ? swipe : {})} className="absolute inset-0 z-50 flex flex-col justify-end">
-      <div className="animate-fade absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className={`animate-sheet relative flex flex-col rounded-t-xl bg-white transition-[height,max-height] duration-300 ease-out ${expanded ? 'h-[94%] max-h-[94%]' : 'max-h-[86%]'}`}>
+    <div {...(onClose ? swipe : {})} ref={layer} className="absolute inset-0 z-50 flex flex-col justify-end">
+      <div ref={backdrop} className="animate-fade absolute inset-0 bg-black/40" onClick={onClose ? dismiss : undefined} />
+      <div
+        ref={panel}
+        role={modal ? 'dialog' : undefined}
+        aria-modal={modal || undefined}
+        aria-labelledby={modal ? titleId : undefined}
+        tabIndex={modal ? -1 : undefined}
+        onKeyDown={modal ? handleModalKey : undefined}
+        className={`animate-sheet relative flex flex-col rounded-t-xl bg-white transition-[height,max-height] duration-300 ease-out ${expanded ? 'h-[94%] max-h-[94%]' : 'max-h-[86%]'}`}
+      >
         <div data-sheet-handle className="touch-pan-x">
         <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-line" />
         <div className="flex items-center justify-between gap-4 px-5 pt-3 pb-2">
-          <div className="flex min-w-0 items-center gap-2"><h2 className="text-headline font-semibold">{title}</h2>{titleAccessory}</div>
+          <div className="flex min-w-0 items-center gap-2"><h2 id={modal ? titleId : undefined} className="text-headline font-semibold">{title}</h2>{titleAccessory}</div>
           <div className="flex shrink-0 items-center gap-2">
             {headerActions}
-            {onClose && <IconButton variant="plain" label={accessibilityText.close[lang]} onClick={onClose}>
+            {onClose && <IconButton variant="plain" label={accessibilityText.close[lang]} onClick={dismiss}>
               <X className="size-5" />
             </IconButton>}
           </div>
         </div>
         </div>
-        <div data-sheet-scroll className={`no-scrollbar flex-1 overflow-y-auto px-5 pt-2 ${footer ? 'pb-5' : 'pb-[calc(32px+env(safe-area-inset-bottom))]'}`}>{children}</div>
+        <div data-sheet-scroll className={`no-scrollbar flex-1 overflow-y-auto px-5 pt-2 ${footer ? 'pb-5' : 'pb-[calc(32px+env(safe-area-inset-bottom))]'}`}>
+          {typeof children === 'function' ? children(dismiss) : children}
+        </div>
         {footer && <div className="border-t border-line px-5 pt-3 pb-[calc(24px+env(safe-area-inset-bottom))]">{footer}</div>}
       </div>
     </div>
@@ -369,7 +427,7 @@ export function Row({ k, v, strong }: { k: ReactNode; v: ReactNode; strong?: boo
   )
 }
 
-/** Selectable list row used by language / dining-mode sheets. */
+/** Selectable list row with a leading icon. */
 export function ChoiceRow({
   active,
   onClick,
@@ -395,7 +453,7 @@ export function ChoiceRow({
     >
       <span
         className={`flex size-8 shrink-0 items-center justify-center rounded-full text-callout font-semibold ${
-          active ? 'bg-brand text-white' : 'bg-tile text-ink-2'
+          active ? 'bg-action text-white' : 'bg-tile text-ink-2'
         }`}
       >
         {leading}
@@ -437,13 +495,15 @@ export function Empty({ title }: { title: string }) {
 /* ---------- Page scaffolding (confirm · order detail · payment) ---------- */
 
 /** Full-screen page: back + title header, scrollable body of <Section>s, optional action footer. */
-export function Page({ title, onBack, footer, children, className = "" }: { title: string; onBack?: () => void; footer?: ReactNode; children: ReactNode; className?: string }) {
-  const swipe = useBackSwipe(onBack, !onBack)
+export function Page({ title, onBack, backDisabled = false, animateBack = true, footer, children, className = "" }: { title: string; onBack?: () => void; backDisabled?: boolean; animateBack?: boolean; footer?: ReactNode; children: ReactNode; className?: string }) {
+  const { panel, dismiss } = useExitMotion(backDisabled ? undefined : onBack, 'right')
+  const back = backDisabled ? undefined : animateBack && onBack ? dismiss : onBack
+  const swipe = useBackSwipe(back, !back)
   return (
-    <div {...swipe} className={`animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-tile ${className}`}>
-      <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-line bg-white px-3 pt-2 pb-2 shadow-divider sm:pointer-fine:pt-11">
-        {onBack ? <BackButton onClick={onBack} /> : <span className="size-11 shrink-0" />}
-        <h1 className="text-headline font-semibold">{title}</h1>
+    <div {...swipe} ref={panel} className={`animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-tile ${className}`}>
+      <header className="relative z-10 flex shrink-0 items-center gap-2 border-b border-line bg-white py-2 pr-gutter pl-3 sm:pointer-fine:pt-11">
+        {onBack ? <BackButton onClick={back ?? onBack} disabled={backDisabled} /> : <span className="size-11 shrink-0" />}
+        <h1 className="text-title leading-tight font-semibold">{title}</h1>
       </header>
       <div className="no-scrollbar flex-1 overflow-y-auto pb-4">{children}</div>
       {footer && <footer className="border-t border-line bg-white px-gutter pt-stack pb-[max(28px,env(safe-area-inset-bottom))]">{footer}</footer>}
@@ -460,7 +520,7 @@ export function Section({ title, trailing, children }: { title?: ReactNode; trai
     <section className="px-gutter pt-stack last:pb-6">
       {(title || trailing) && (
         <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          {title ? <h2 className="text-body font-semibold text-ink-2">{title}</h2> : <span />}
+          {title ? <h2 className="text-headline font-semibold text-ink">{title}</h2> : <span />}
           {trailing}
         </div>
       )}
