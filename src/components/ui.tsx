@@ -9,11 +9,11 @@ import { uiText } from '../i18n'
  *   colour   brand = action + brand emphasis only · success / pending / info / danger = status
  *   sizes    icon buttons 44 · quantity circles 32 · list thumb 56
  */
-import { createContext, useContext, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
 import { AlertCircle, Check, ChevronLeft, Info, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
 import { useBackSwipe, useSheetSwipe } from '../gestures'
 import { useExitMotion } from '../exit-motion'
-import type { Lang } from '../data'
+import { dishes, type Lang } from '../data'
 
 export const LanguageContext = createContext<Lang>('hk')
 const accessibilityText = { back: { en: 'Back', hk: '返回', zh: '返回' }, close: { en: 'Close', hk: '關閉', zh: '关闭' }, increase: { en: 'Increase', hk: '增加', zh: '增加' }, decrease: { en: 'Decrease', hk: '減少', zh: '减少' }, remove: { en: 'Remove', hk: '移除', zh: '移除' } }
@@ -290,31 +290,57 @@ export function OptionChip({ active, onClick, disabled, className = '', children
 /* ---------- Imagery ---------- */
 
 export function DishImage({
-  src,
+  src: originalSrc,
   alt,
+  dishId,
   className = '',
   fullSize = false,
-  loading,
+  defer = false,
+  loading = 'lazy',
   fetchPriority,
 }: {
   src?: string
   alt: string
+  dishId?: string
   className?: string
   fullSize?: boolean
+  defer?: boolean
   loading?: 'eager' | 'lazy'
   fetchPriority?: 'high' | 'low'
 }) {
+  const src = (dishId ? dishes.find(dish => dish.id === dishId)?.image : undefined) ?? originalSrc
   const [failure, setFailure] = useState<{ src: string; final: boolean }>()
+  const [nearViewport, setNearViewport] = useState(false)
+  const placeholder = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!defer || nearViewport || !placeholder.current) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setNearViewport(true)
+      return
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return
+      setNearViewport(true)
+      observer.disconnect()
+    }, { rootMargin: '120px 0px' })
+    observer.observe(placeholder.current)
+    return () => observer.disconnect()
+  }, [defer, nearViewport])
   if (!src || (failure?.src === src && failure.final))
     return (
       <div className={`flex items-center justify-center bg-line ${className}`} role="img" aria-label={alt}>
         <ShoppingBag className="h-1/3 w-1/3 text-muted/40" strokeWidth={1.5} />
       </div>
     )
+  if (defer && !nearViewport) return <div ref={placeholder} className={`bg-tile ${className}`} aria-hidden="true" />
+
   const dishPath = `${import.meta.env.BASE_URL}dishes/`
-  const imageSrc = !fullSize && failure?.src !== src && src.startsWith(dishPath) && src.endsWith('.webp')
+  const thumbnail = src.startsWith(dishPath) && src.endsWith('.webp')
     ? `${import.meta.env.BASE_URL}dish-thumbnails/${src.slice(dishPath.length)}`
     : src
+  const primary = fullSize ? src : thumbnail
+  const fallback = fullSize ? thumbnail : src
+  const imageSrc = failure?.src === src ? fallback : primary
   return (
     <img
       key={imageSrc}
@@ -322,9 +348,14 @@ export function DishImage({
       alt={alt}
       loading={loading}
       fetchPriority={fetchPriority}
-      decoding="async"
-      onError={() => setFailure({ src, final: imageSrc === src })}
+      decoding={fetchPriority === 'high' ? 'auto' : 'async'}
+      onError={() => setFailure({ src, final: imageSrc === fallback })}
       className={`bg-tile object-cover ${className}`}
+      style={fullSize && thumbnail !== src && imageSrc !== thumbnail ? {
+        backgroundImage: `url("${thumbnail}")`,
+        backgroundPosition: 'center',
+        backgroundSize: 'cover',
+      } : undefined}
     />
   )
 }
