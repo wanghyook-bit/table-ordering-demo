@@ -85,8 +85,8 @@ export function ConfirmPage({
           {repriced && <InlineAlert tone="pending" title={t(feeText.reprice)} className="mb-2" />}
           <div className="confirm-actions">
             {expiresAt ? <Button variant="secondary" onClick={onRequestCancelPayment} disabled={checkingPayment} className="flex-1 cancel-payment">{uiText(lang, 'cancel_payment_2f54b')}</Button> : table && <Button variant="secondary" onClick={onAddMore} disabled={checkingPayment} className="flex-1">{uiText(lang, 'add_dishes_c537b')}</Button>}
-            <Button onClick={onSubmit} disabled={!valid || checkingPayment} className="flex-1">
-              {checkingPayment ? t(strings.paymentChecking) : paymentTime ? (
+            <Button onClick={onSubmit} disabled={!valid || checkingPayment} aria-label={checkingPayment ? t(strings.paymentChecking) : undefined} className="flex-1">
+              {checkingPayment ? t(strings.paymentCheckingShort) : paymentTime ? (
                 <>
                   {uiText(lang, 'pay_550a8')}
                   <span className="font-semibold tabular-nums" aria-hidden="true">{paymentTime}</span>

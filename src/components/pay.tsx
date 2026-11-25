@@ -189,7 +189,7 @@ export function PaymentFlow({
       title={t(strings.confirmPaymentTitle)}
       onBack={polling ? undefined : onBack}
       footer={
-        <ActionBar label={t(strings.paymentAmount)} total={charge === null ? balance : charge / 100}><Button className="flex-1" disabled={polling || charge === null} onClick={() => {
+        <ActionBar label={t(strings.paymentAmount)} total={charge === null ? balance : charge / 100}><Button className="flex-1" disabled={polling || charge === null} aria-label={polling ? t(strings.paymentChecking) : undefined} onClick={() => {
           if (stage.kind !== 'review' || charge === null) return
           setNotice(null)
           setEditing(false)
@@ -198,7 +198,7 @@ export function PaymentFlow({
             attempt: { id: `${paymentId}-${Date.now()}-${++attemptCount.current}-${Math.random().toString(36).slice(2)}`, orderNo, cents: charge, tip, method },
           })
         }}>
-          {polling ? t(strings.confirmingPayment) : charge === null ? t(strings.pay) : `${t(strings.pay)} ${money(charge / 100)}`}
+          {polling ? t(strings.paymentCheckingShort) : charge === null ? t(strings.pay) : `${t(strings.pay)} ${money(charge / 100)}`}
         </Button></ActionBar>
       }
     >
@@ -385,11 +385,11 @@ function ThirdPartyPage({
       <div className="space-y-3 px-5 pb-8">
         <div className="flex gap-3">
           {showCancelPayment && (
-            <Button variant="secondary" onClick={() => returnToOrder('cancelled')} className="min-w-0 flex-1 border border-line bg-white px-3!">
+            <Button variant="secondary" onClick={() => returnToOrder('cancelled')} className="min-w-0 flex-1 border border-line bg-white px-3! max-[359px]:px-2! max-[359px]:text-callout">
               {uiText(lang, 'cancel_payment_2f54b')}
             </Button>
           )}
-          <Button variant="dark" onClick={() => onReturn('success')} className="min-w-0 flex-1 px-3!">
+          <Button variant="dark" onClick={() => onReturn('success')} className="min-w-0 flex-1 px-3! max-[359px]:px-2! max-[359px]:text-callout">
             {t(strings.providerSuccess)}
           </Button>
         </div>

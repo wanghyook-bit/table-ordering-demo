@@ -225,6 +225,9 @@
 .confirm-design dl > div { font-size: 14px; line-height: 22px; }
 .confirm-design dl dd { font-size: 15px; }
 .confirm-actions { display: flex; gap: var(--spacing-stack); }
+@media (max-width: 359px) {
+  .confirm-actions > button { padding-inline:8px; }
+}
 
 /* Shared order and payment surfaces follow the confirmation-page visual system. */
 :is(.order-design, .payment-design) { background: #fff; }
