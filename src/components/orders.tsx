@@ -151,7 +151,7 @@ export function OrderDetail({
         title={lang === 'en' ? 'Items' : '餐品詳情'}
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(rounds.reduce((sum, round) => sum + itemCount(round.lines), 0), lang)}</span>}
       >
-        <div className="space-y-5">
+        <div className="confirm-item-groups">
           {rounds.map((round, index) => (
             <RoundGroup
               key={round.id}
@@ -160,7 +160,7 @@ export function OrderDetail({
               lang={lang}
               amounts={round.quote.rows}
               status="ordered"
-              showRound={rounds.length > 1}
+              showRound={false}
             />
           ))}
         </div>
