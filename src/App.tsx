@@ -263,8 +263,8 @@ export default function App() {
     }
     if (prepay && (!rounds.length || !!table) && online) {
       setPendingRound(round)
-      if (table) { setPrepayExpiresAt(Date.now() + 15 * 60 * 1000); setPage('confirm') }
-      else setPage('pay')
+      if (table) setPrepayExpiresAt(Date.now() + 15 * 60 * 1000)
+      setPage('pay')
       return
     }
     if (manualAcceptance && !rounds.length) setRequest({ status: 'waiting', round })
@@ -560,8 +560,11 @@ export default function App() {
             directSessionKey={table ? paymentSessionKey : undefined}
             persistentAttempt={!!table && prepay}
             onFailure={table ? (kind) => {
-              setPaymentResult(prepayExpiresAt && Date.now() >= prepayExpiresAt && pendingRound ? { kind: 'expired' } : { kind })
-              setPage(pendingRound ? 'confirm' : 'orders')
+              if (pendingRound) {
+                sessionStore.removeItem(paymentSessionKey)
+                setPaymentResult(prepayExpiresAt && Date.now() >= prepayExpiresAt ? { kind: 'expired' } : null)
+                setPage('confirm')
+              } else { setPaymentResult({ kind }); setPage('orders') }
             } : undefined}
             tipsEnabled={storeRules.tips}
             orderNo={ORDER_NO}
@@ -581,7 +584,8 @@ export default function App() {
                 setCouponNotice(null)
               }
               if (table) {
-                setPaymentResult({ kind: 'success', amount: payment.amount })
+                if (pendingRound) { sessionStore.removeItem(paymentSessionKey); setPaymentResult(null) }
+                else setPaymentResult({ kind: 'success', amount: payment.amount })
                 setPage('orders')
               } else {
                 setSettled(true)
