@@ -33,6 +33,7 @@ export const dishTags = {
 }
 
 export const categories: Category[] = [
+  { id: 'sets', name: L('Set meals', '精選套餐', '精选套餐'), thumb: u('1760504526044-840cade997b2') },
   { id: 'dimsum', name: L('Hong Kong Snacks', '港式小食', '港式小食'), thumb: u('1558226933-792c5fe24e3b') },
   { id: 'mains', name: L('Tea Room Classics', '冰室常餐', '冰室常餐'), thumb: u('1760504526044-840cade997b2') },
   { id: 'roast', name: L('Roast & Rice', '燒味飯', '烧味饭'), thumb: u('1785899578127-f3883106c735') },
@@ -47,6 +48,21 @@ const glass = L('glass', '杯', '杯')
 const piece = L('2 pcs', '2件', '2件')
 
 export const dishes: Dish[] = [
+  {
+    id: 'set1', category: 'sets', name: L('Baked Pork Chop Rice Set', '焗豬扒飯套餐', '焗猪扒饭套餐'),
+    desc: L('Baked pork chop rice with a choice of drink.', '焗豬扒飯配精選飲品一杯。', '焗猪扒饭配精选饮品一杯。'),
+    price: 98, unit: L('set', '份', '份'), image: u('1760504526044-840cade997b2'), tag: 'signature',
+  },
+  {
+    id: 'set2', category: 'sets', name: L('Char Siu & Egg Rice Set', '叉燒煎蛋飯套餐', '叉烧煎蛋饭套餐'),
+    desc: L('Char siu and egg rice with a choice of drink.', '叉燒煎蛋飯配精選飲品一杯。', '叉烧煎蛋饭配精选饮品一杯。'),
+    price: 78, unit: L('set', '份', '份'), image: u('1775385443474-b1a63739bf6a'), tag: 'popular',
+  },
+  {
+    id: 'set3', category: 'sets', name: L('Wonton Noodle Set', '鮮蝦雲吞麵套餐', '鲜虾云吞面套餐'),
+    desc: L('Shrimp wonton noodles with a choice of drink.', '鮮蝦雲吞麵配精選飲品一杯。', '鲜虾云吞面配精选饮品一杯。'),
+    price: 88, unit: L('set', '份', '份'), image: u('1607095097076-bf0221751ed6'),
+  },
   {
     id: 'ds1',
     category: 'dimsum',
@@ -177,6 +193,16 @@ const g = (id: string, name: L10n, type: 'single' | 'multi', opts: [string, L10n
 })
 
 const G = {
+  setDrink: g('setDrink', L('Choose a drink', '選擇套餐飲品', '选择套餐饮品'), 'single', [
+    ['hotMilkTea', L('Hot milk tea', '熱奶茶', '热奶茶')],
+    ['hotLemonTea', L('Hot lemon tea', '熱檸茶', '热柠茶')],
+    ['icedMilkTea', L('Iced milk tea', '凍奶茶', '冻奶茶'), 3],
+    ['icedLemonTea', L('Iced lemon tea', '凍檸茶', '冻柠茶'), 3],
+  ]),
+  setExtra: g('setExtra', L('Add-ons', '套餐加配', '套餐加配'), 'multi', [
+    ['eggTart', L('Egg tart', '酥皮蛋撻', '酥皮蛋挞'), 12],
+    ['soup', L('Soup of the day', '是日餐湯', '是日餐汤'), 10],
+  ]),
   spice: g('spice', L('Spice level', '辣度', '辣度'), 'single', [
     ['0', L('Not spicy', '不辣', '不辣')],
     ['1', L('Mild', '小辣', '微辣')],
@@ -233,6 +259,9 @@ const G = {
 }
 
 export const dishOptions: Record<string, OptionGroup[]> = {
+  set1: [G.setDrink, G.setExtra],
+  set2: [G.setDrink, G.setExtra],
+  set3: [G.setDrink, G.setExtra],
   // ds1, ds3, sw1, sw2: no choices — "+" adds straight to the cart
   ds2: [G.sauce, G.hold],
   r1: [G.portion, G.hold],
