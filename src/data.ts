@@ -6,7 +6,7 @@ const u = (id: string) => `${import.meta.env.BASE_URL}dishes/${id}.webp`
 export const HERO = `${import.meta.env.BASE_URL}assets/welcome-hero.webp`
 
 export const HOME_HERO = `${import.meta.env.BASE_URL}assets/hong-kong-cafe-banner.webp`
-export const HOME_AVATAR = `${import.meta.env.BASE_URL}assets/member-avatar.png`
+export const HOME_AVATAR = `${import.meta.env.BASE_URL}assets/member-avatar.webp`
 
 export type Category = { id: string; name: L10n; thumb: string }
 export type Dish = {

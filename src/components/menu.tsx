@@ -5,7 +5,7 @@ import { dishHints, dishes, dishOptions, dishTags, strings, type Dish, type L10n
 import { useBackSwipe } from '../gestures'
 import { useExitMotion } from '../exit-motion'
 import { isCustomizable, optsLabel, unitPrice, type CartLine } from '../cart'
-import { AddButton, BackButton, Button, DishImage, Empty, OptionChip, Price, Stepper, Tag, TextButton, Thumb, textareaClass } from './ui'
+import { AddButton, BackButton, Button, DishImage, Empty, OptionChip, Price, Stepper, Tag, TextButton, Thumb, fieldFocusClass, textareaClass } from './ui'
 
 const MAX_DISH_NOTE = 200
 const QUICK_NOTES: L10n[] = [
@@ -39,6 +39,7 @@ export function DishCard({
   lang,
   qty,
   ordered,
+  prioritizeImage,
   onOpen,
   onAdd,
 }: {
@@ -46,6 +47,7 @@ export function DishCard({
   lang: Lang
   qty: number
   ordered: number
+  prioritizeImage: boolean
   onOpen: () => void
   onAdd: () => void
 }) {
@@ -53,10 +55,16 @@ export function DishCard({
     // Cards share a row height. Long names can wrap without displacing the price row.
     <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white ${dish.soldOut ? 'opacity-60' : ''}`}>
       <button onClick={onOpen} className="relative block overflow-hidden">
-        <DishImage src={dish.image} alt={dish.name[lang]} className="aspect-[4/3] w-full transition duration-500 hover:scale-105" />
+        <DishImage
+          src={dish.image}
+          alt={dish.name[lang]}
+          loading={prioritizeImage ? 'eager' : 'lazy'}
+          fetchPriority={prioritizeImage ? 'high' : 'low'}
+          className="aspect-[4/3] w-full transition duration-500 hover:scale-105"
+        />
         <span className="absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-1">
           {ordered > 0 ? (
-            <Tag tone="brand" className="rounded-full!">{strings.ordered[lang]} {ordered}</Tag>
+            <Tag tone="brand">{strings.ordered[lang]} {ordered}</Tag>
           ) : (
             <span />
           )}
@@ -86,7 +94,7 @@ function DishAddButton({ dish, lang, qty, onClick }: { dish: Dish; lang: Lang; q
   const action = isCustomizable(dish) ? strings.customize : strings.add
   if (isCustomizable(dish)) return (
     <button type="button" onClick={onClick} aria-label={`${action[lang]} · ${dish.name[lang]}${qty > 0 ? ` · ${strings.inCart[lang]} ×${qty}` : ''}`} className="group relative flex h-11 shrink-0 items-center justify-end rounded-full">
-      {qty > 0 && <span className="-mr-2 flex h-7 items-center rounded-l-full bg-brand-soft pr-2.5 pl-2 text-caption font-semibold text-brand-strong tabular-nums">×{qty}</span>}
+      {qty > 0 && <span className="-mr-2 flex h-7 items-center rounded-full bg-brand-soft pr-2.5 pl-2 text-caption font-semibold text-action tabular-nums">×{qty}</span>}
       <span className="relative flex h-8 items-center justify-center rounded-full bg-action px-3 text-caption font-semibold whitespace-nowrap text-white transition group-active:scale-95 group-active:bg-action-pressed">
         {lang === 'en' ? 'Options' : lang === 'zh' ? '选规格' : '選規格'}
       </span>
@@ -147,11 +155,11 @@ export function DishPage({
       <BackButton onImage onClick={dismiss} className="absolute top-2 left-3 z-10 sm:pointer-fine:top-11" />
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
         <div className="bg-tile">
-          <DishImage src={dish.image} alt={dish.name[lang]} className="aspect-[16/10] w-full" />
+          <DishImage src={dish.image} alt={dish.name[lang]} fullSize className="aspect-[16/10] w-full" />
         </div>
         <div className="border-b border-line px-5 pt-5 pb-4">
           <div className="flex flex-wrap items-center gap-2">
-            {ordered > 0 && <Tag tone="success" compact>{t(strings.ordered)} {ordered}</Tag>}
+            {ordered > 0 && <Tag tone="brand" compact>{t(strings.ordered)} {ordered}</Tag>}
             {dish.tag && <DishTag kind={dish.tag} lang={lang} compact />}
             <h1 className="min-w-0 text-title leading-tight font-semibold">{dish.name[lang]}</h1>
           </div>
@@ -255,7 +263,7 @@ export function SearchOverlay({
   return (
     <div {...swipe} ref={panel} inert={inactive} className="animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-white">
       <div className="relative z-10 flex items-center gap-3 border-b border-line bg-white px-5 pt-3 pb-3 sm:pointer-fine:pt-14">
-        <label className="flex h-11 flex-1 items-center gap-2 rounded-md bg-tile px-4">
+        <label className={`flex h-11 flex-1 items-center gap-2 rounded-md border border-transparent bg-tile px-4 ${fieldFocusClass}`}>
           <Search className="size-4.5 shrink-0 text-muted" />
           <input
             autoFocus
@@ -287,7 +295,7 @@ export function SearchOverlay({
                       <span className="mt-1 flex items-center gap-2">
                         <Price value={d.price} className="text-body font-semibold" />
                         {ordered > 0 && (
-                          <Tag tone="success">
+                          <Tag tone="brand">
                             {strings.ordered[lang]} {ordered}
                           </Tag>
                         )}

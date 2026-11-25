@@ -6,7 +6,7 @@ import { useBackSwipe } from '../gestures'
 import { useExitMotion } from '../exit-motion'
 import type { PaymentRecord } from './orders'
 import { feeText } from './pricing'
-import { ActionBar, BottomSheet, Button, ChoiceRow, IconButton, InlineAlert, choiceBase, choiceState, money, Page, Row, Section, StatusPanel, TextButton } from './ui'
+import { ActionBar, BottomSheet, Button, ChoiceRow, IconButton, InlineAlert, choiceBase, choiceState, disabledControlClass, money, Page, Row, Section, StatusPanel, TextButton } from './ui'
 
 const L = (en: string, hk: string, zh: string): L10n => ({ en, hk, zh })
 
@@ -214,7 +214,7 @@ export function PaymentFlow({
             <dt className="text-callout font-semibold text-ink-2">{t(strings.paymentAmount)}</dt>
             <dd className="mt-1 flex items-center gap-2">
               {editing ? (
-                <label className={`flex min-w-0 flex-1 items-center gap-1.5 border-b py-1.5 focus-within:border-brand ${error ? 'border-danger' : 'border-line'}`}>
+                <label className={`flex min-w-0 flex-1 items-center gap-1.5 border-b py-1.5 ${error ? 'border-danger' : 'border-line focus-within:border-action'}`}>
                   <span className="text-title font-semibold" aria-hidden="true">$</span>
                   <input
                     aria-label={t(strings.paymentAmount)}
@@ -234,7 +234,7 @@ export function PaymentFlow({
             </dd>
             {error && <dd id={amountErrorId} className="mt-2 text-callout text-danger">{t(error)}</dd>}
           </div>
-          <div className="mt-3 space-y-2 border-t border-line pt-3">
+          <div className="section-divider space-y-2">
             <Row k={t(strings.balanceDue)} v={money(balance)} />
             <Row k={t(strings.balanceAfterPayment)} v={amountCents === null ? '—' : money((balanceCents - amountCents) / 100)} />
           </div>
@@ -259,16 +259,16 @@ export function PaymentFlow({
 
       {polling && <Section><StatusPanel tone="info" icon={<Loader2 className="size-5 animate-spin text-info" aria-hidden="true" />} title={t(strings.confirmingPayment)} description={t(strings.paymentLockHint)} /></Section>}
 
-      {stage.kind === 'pending' && <Section><p className="text-callout text-ink-2">{uiText(lang, 'the_payment_result_is_still_being_conf_2f3d9')}</p><div className="mt-3 flex flex-wrap gap-3"><TextButton tone="brandStrong" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'unknown' })}>{uiText(lang, 'check_again_7fc92')}</TextButton><TextButton tone="brandStrong" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'success' })}>{uiText(lang, 'simulate_confirmed_payment_3cfb9')}</TextButton><TextButton tone="muted" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'failed' })}>{uiText(lang, 'simulate_failure_2ff4f')}</TextButton></div></Section>}
+      {stage.kind === 'pending' && <Section><p className="text-callout text-ink-2">{uiText(lang, 'the_payment_result_is_still_being_conf_2f3d9')}</p><div className="mt-3 flex flex-wrap gap-3"><TextButton tone="brand" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'unknown' })}>{uiText(lang, 'check_again_7fc92')}</TextButton><TextButton tone="brand" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'success' })}>{uiText(lang, 'simulate_confirmed_payment_3cfb9')}</TextButton><TextButton tone="muted" underline onClick={() => setStage({ kind: 'polling', attempt: stage.attempt, result: 'failed' })}>{uiText(lang, 'simulate_failure_2ff4f')}</TextButton></div></Section>}
       <Section title={t(strings.payMethod)}>
         {gateway ? <p className="text-body text-ink-2">{uiText(lang, 'complete_payment_through_the_gateway_8641e')}</p> : <button
           disabled={polling}
           onClick={() => setPicking(true)}
-          className="flex w-full items-center gap-3 rounded-lg border border-line p-3 text-left transition active:bg-tile"
+          className={`group flex w-full items-center gap-3 rounded-lg border border-line p-3 text-left transition active:bg-tile ${disabledControlClass}`}
         >
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-tile text-ink">{method.icon}</span>
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-md bg-tile text-ink group-disabled:bg-white/50 group-disabled:text-disabled-ink">{method.icon}</span>
           <span className="min-w-0 flex-1 text-body font-medium">{t(method.name)}</span>
-          <span className="flex items-center text-callout text-brand">
+          <span className="flex items-center text-callout text-action group-disabled:text-disabled-ink">
             {t(strings.change)}
             <ChevronRight className="size-4" />
           </span>
@@ -366,6 +366,7 @@ function ThirdPartyPage({
     dismiss()
   }
   const swipe = useBackSwipe(() => returnToOrder('cancelled'))
+  const paymentTime = usePaymentCountdown(expiresAt)
   return (
     <div {...swipe} ref={panel} className={`${showCancelPayment ? 'animate-slide' : 'animate-sheet'} absolute inset-0 z-[52] flex touch-pan-y flex-col bg-tile`}>
       <header className="flex items-center justify-between px-5 pt-12 pb-3">
@@ -379,7 +380,7 @@ function ThirdPartyPage({
         <span className="flex size-16 items-center justify-center rounded-lg bg-ink text-white">{method.icon}</span>
         <p className="mt-6 text-callout text-ink-2">{t(strings.restaurant)} · {t(method.name)}</p>
         <p className="mt-2 text-display font-semibold tabular-nums">{money(amount)}</p>
-        {expiresAt && <PaymentCountdown expiresAt={expiresAt} lang={lang} />}
+        {paymentTime && <div className="mt-3"><PaymentCountdown time={paymentTime} lang={lang} /></div>}
       </div>
       <div className="space-y-3 px-5 pb-8">
         <div className="flex gap-3">
@@ -401,12 +402,48 @@ function ThirdPartyPage({
   )
 }
 
-export function PaymentCountdown({ expiresAt, lang, variant = 'standard' }: { expiresAt: number; lang: Lang; variant?: 'standard' | 'inline' | 'banner' }) {
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id) }, [])
+export function usePaymentCountdown(expiresAt?: number | null) {
+  const [now, setNow] = useState(Date.now)
+  useLayoutEffect(() => {
+    if (!expiresAt) return
+    const tick = () => setNow(Date.now())
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [expiresAt])
+  if (!expiresAt) return null
   const seconds = Math.max(0, Math.ceil((expiresAt - now) / 1000))
-  const time = `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
-  if (variant === 'inline') return <span className="tabular-nums">{time}</span>
-  if (variant === 'banner') return <div className="countdown-banner"><strong>{time}</strong><span>{lang === 'en' ? 'until the payment session expires' : lang === 'zh' ? '后支付会话失效' : '後支付會話失效'}</span></div>
-  return <p className="mt-3 text-callout text-ink-2 tabular-nums">{lang === 'en' ? 'Time left to pay' : lang === 'zh' ? '支付剩余时间' : '支付剩餘時間'} {time}</p>
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+export function PaymentCountdown({ time, lang, variant = 'card' }: { time: string; lang: Lang; variant?: 'card' | 'status-row' }) {
+  const statusRow = variant === 'status-row'
+  return (
+    <p className={`payment-countdown flex items-center font-medium text-ink ${statusRow ? 'min-h-12 gap-2 bg-white text-headline' : 'min-h-11 gap-1.5 rounded-md border border-action/20 bg-brand-soft px-3 py-2 text-callout'}`}>
+      <span className="flex min-w-0 items-center gap-2">
+        <PaymentHourglass className={statusRow ? 'size-6' : 'size-5'} />
+        {uiText(lang, statusRow ? 'awaiting_payment_99cbe' : 'payment_time_remaining')}
+      </span>
+      <strong className={`shrink-0 text-action tabular-nums ${statusRow ? 'text-2xl font-bold' : 'text-headline font-semibold'}`}>{time}</strong>
+    </p>
+  )
+}
+
+function PaymentHourglass({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`shrink-0 text-action ${className}`} aria-hidden="true" fill="none">
+      <g className="payment-hourglass-body">
+        <path className="payment-hourglass-top" fill="currentColor" d="M8.8 5.3h6.4v1.1c0 1.6-1.1 2.8-3.2 4.2C9.9 9.2 8.8 8 8.8 6.4V5.3Z" />
+        <path className="payment-hourglass-bottom" fill="currentColor" d="M15.2 18.7H8.8v-1.1c0-1.6 1.1-2.8 3.2-4.2 2.1 1.4 3.2 2.6 3.2 4.2v1.1Z" />
+        <path className="payment-hourglass-stream" d="M12 10.9v3.4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+        <path
+          className="stroke-ink-2"
+          d="M6 3h12M6 21h12M7 3v2.6c0 2.5 1.4 4 3.7 5.4l1.3 1-1.3 1C8.4 14.4 7 16 7 18.4V21M17 3v2.6c0 2.5-1.4 4-3.7 5.4L12 12l1.3 1c2.3 1.4 3.7 3 3.7 5.4V21"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
+    </svg>
+  )
 }

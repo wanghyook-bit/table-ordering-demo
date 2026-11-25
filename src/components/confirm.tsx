@@ -9,7 +9,7 @@ import { ItemList, OrderAmounts, calculateBill, countLabel, itemCount, type Roun
 import { StoreCard } from './store'
 import { Button, InlineAlert, OptionChip, Page, Row, Section, TextButton, fieldClass, money, textareaClass } from './ui'
 import { FeeRows, feeText } from './pricing'
-import { PaymentCountdown } from './pay'
+import { PaymentCountdown, usePaymentCountdown } from './pay'
 
 export type Contact = { name: string; phone: string }
 
@@ -21,7 +21,7 @@ export function ConfirmPage({
   lines,
   expiresAt,
   checkingPayment = false,
-  onCancelPayment,
+  onRequestCancelPayment,
   quote,
   repriced,
   mode,
@@ -43,7 +43,7 @@ export function ConfirmPage({
   lines: CartLine[]
   expiresAt?: number | null
   checkingPayment?: boolean
-  onCancelPayment?: () => void
+  onRequestCancelPayment?: () => void
   quote: PriceQuote
   repriced: boolean
   mode: Mode
@@ -69,6 +69,7 @@ export function ConfirmPage({
   const t = (s: L10n) => s[lang]
   const [expanded, setExpanded] = useState(false)
   const [noteOpen, setNoteOpen] = useState(false)
+  const paymentTime = usePaymentCountdown(expiresAt)
   const valid = hasValidOrderContact(mode, contact)
   const combined = table && previousRounds.length ? calculateBill([...previousRounds, { id: 0, lines, mode, quote, time: '' }], payments) : null
 
@@ -83,8 +84,15 @@ export function ConfirmPage({
         <>
           {repriced && <InlineAlert tone="pending" title={t(feeText.reprice)} className="mb-2" />}
           <div className="confirm-actions">
-            {expiresAt ? <Button variant="secondary" onClick={onCancelPayment} disabled={checkingPayment} className="flex-1 cancel-payment">{uiText(lang, 'cancel_payment_2f54b')}</Button> : table && <Button variant="secondary" onClick={onAddMore} disabled={checkingPayment} className="flex-1">{uiText(lang, 'add_dishes_c537b')}</Button>}
-            <Button onClick={onSubmit} disabled={!valid || checkingPayment} className="flex-1">{checkingPayment ? t(strings.paymentChecking) : expiresAt ? <>{uiText(lang, 'pay_550a8')} <PaymentCountdown expiresAt={expiresAt} lang={lang} variant="inline" /></> : prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}</Button>
+            {expiresAt ? <Button variant="secondary" onClick={onRequestCancelPayment} disabled={checkingPayment} className="flex-1 cancel-payment">{uiText(lang, 'cancel_payment_2f54b')}</Button> : table && <Button variant="secondary" onClick={onAddMore} disabled={checkingPayment} className="flex-1">{uiText(lang, 'add_dishes_c537b')}</Button>}
+            <Button onClick={onSubmit} disabled={!valid || checkingPayment} className="flex-1">
+              {checkingPayment ? t(strings.paymentChecking) : paymentTime ? (
+                <>
+                  {uiText(lang, 'pay_550a8')}
+                  <span className="font-semibold tabular-nums" aria-hidden="true">{paymentTime}</span>
+                </>
+              ) : prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}
+            </Button>
           </div>
         </>
       }
@@ -120,7 +128,7 @@ export function ConfirmPage({
         </>
       ) : null}
 
-      {expiresAt && <div className="confirm-countdown"><PaymentCountdown expiresAt={expiresAt} lang={lang} variant="banner" /></div>}
+      {paymentTime && <div className="px-gutter pt-stack"><PaymentCountdown time={paymentTime} lang={lang} variant="status-row" /></div>}
       <Section
         title={table ? (uiText(lang, 'items_2f38f')) : t(strings.yourItems)}
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(itemCount(lines) + (table ? previousRounds.reduce((sum, round) => sum + itemCount(round.lines), 0) : 0), lang)}</span>}
@@ -157,7 +165,7 @@ function Field({
   inputMode?: 'tel'
 }) {
   return (
-    <label className={`${fieldClass} flex items-center gap-2 focus-within:ring-2 focus-within:ring-brand/10`}>
+    <label className={`${fieldClass} flex items-center gap-2`}>
       {prefix && <span className="border-r border-line pr-2 text-body text-ink-2">{prefix}</span>}
       <input
         value={value}
