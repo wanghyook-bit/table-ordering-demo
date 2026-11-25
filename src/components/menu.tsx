@@ -1,6 +1,6 @@
 import { uiText } from '../i18n'
 import { useState, type ReactNode } from 'react'
-import { Check, CupSoda, Search, ShoppingBag } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CupSoda, Search, ShoppingBag } from 'lucide-react'
 import { dishHints, dishes, dishOptions, dishTags, strings, type Dish, type L10n, type Lang, type OptionGroup } from '../data'
 import { useBackSwipe } from '../gestures'
 import { isCustomizable, optsLabel, unitPrice, type CartLine } from '../cart'
@@ -117,6 +117,7 @@ export function DishPage({
   )
   const swipe = useBackSwipe(onClose)
   const [note, setNote] = useState('')
+  const [noteOpen, setNoteOpen] = useState(false)
   const [n, setN] = useState(1)
   const opts = Object.values(sel).flat()
   const price = unitPrice(dish, opts)
@@ -146,17 +147,14 @@ export function DishPage({
           <DishImage src={dish.image} alt={dish.name[lang]} className="aspect-[16/10] w-full" />
         </div>
         <div className="border-b border-line px-5 pt-5 pb-4">
-          {(dish.tag || ordered > 0) && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {ordered > 0 && <Tag tone="success" compact>{t(strings.ordered)} {ordered}</Tag>}
-              {dish.tag && <DishTag kind={dish.tag} lang={lang} compact />}
-            </div>
-          )}
-          <h1 className="text-title leading-tight font-semibold">{dish.name[lang]}</h1>
-          <p className="mt-1.5 text-callout text-ink-2">{dish.desc[lang]}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {ordered > 0 && <Tag tone="success" compact>{t(strings.ordered)} {ordered}</Tag>}
+            {dish.tag && <DishTag kind={dish.tag} lang={lang} compact />}
+            <h1 className="min-w-0 text-title leading-tight font-semibold">{dish.name[lang]}</h1>
+          </div>
         </div>
 
-        <div className="space-y-3 bg-white px-5 pt-3">
+        <div className="dish-detail-sections bg-white px-5 pt-3">
           <div className="flex min-h-11 items-center justify-between gap-3">
             <h2 className="text-body font-semibold text-ink">{t(strings.quantity)}</h2>
             {dish.soldOut ? <span className="text-callout text-muted">{t(strings.soldOut)}</span> : (
@@ -165,12 +163,12 @@ export function DishPage({
           </div>
           {groups.map((g) => (
             <section key={g.id}>
-              <h2 className="mb-2 flex flex-wrap items-baseline gap-x-2 text-body font-semibold text-ink">{t(g.name)} <span className="text-caption font-normal text-ink-2">{g.type === 'single' ? (uiText(lang, 'required_choose_one_967f7')) : (uiText(lang, 'optional_1eb0b'))}</span></h2>
+              <h2 className="mb-2 text-body font-semibold text-ink">{t(g.name)}</h2>
               <div className="flex flex-wrap gap-2">
                 {g.options.map((o, index) => {
                   const on = !!sel[g.id]?.includes(o.id)
                   return (
-                    <OptionChip key={o.id} active={on} onClick={() => toggle(g, o.id)}>
+                    <OptionChip key={o.id} active={on} onClick={() => toggle(g, o.id)} className="dish-option">
                       {g.size && <CupSoda aria-hidden="true" size={14 + index * 3} className="shrink-0" />}
                       {t(o.name)}
                       {o.price ? <span className={on ? '' : 'text-muted'}>+${o.price}</span> : null}
@@ -181,24 +179,17 @@ export function DishPage({
             </section>
           ))}
           <section>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <h2 className="text-body font-semibold text-ink">{t(strings.specialRequest)}</h2>
-              {note.length > 0 && <span className="text-caption text-ink-2 tabular-nums">{note.length} / {MAX_DISH_NOTE}</span>}
-            </div>
-            <textarea
-              rows={2}
-              value={note}
-              maxLength={MAX_DISH_NOTE}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder={dishHints[dish.id] ? t(dishHints[dish.id]) : ''}
-              aria-label={t(strings.specialRequest)}
-              className={textareaClass}
-            />
-            {quickNotes.length > 0 && <div className="mt-3 flex flex-wrap gap-2">
-              {quickNotes.map((quick) => {
+            <button type="button" className="confirm-note-toggle" aria-expanded={noteOpen} onClick={() => setNoteOpen(!noteOpen)}>
+              <strong>{t(strings.specialRequest)}</strong>
+              <span>{note || uiText(lang, 'preferences_or_requests_f292b')} {noteOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
+            </button>
+            {noteOpen && <div className="mt-2">
+              {note.length > 0 && <p className="mb-1 text-right text-caption text-ink-2 tabular-nums">{note.length} / {MAX_DISH_NOTE}</p>}
+              <textarea rows={2} value={note} maxLength={MAX_DISH_NOTE} onChange={(event) => setNote(event.target.value)} placeholder={dishHints[dish.id] ? t(dishHints[dish.id]) : uiText(lang, 'preferences_or_requests_f292b')} aria-label={t(strings.specialRequest)} className={textareaClass} />
+              {quickNotes.length > 0 && <div className="mt-3 flex flex-wrap gap-2">{quickNotes.map((quick) => {
                 const label = t(quick)
-                return <OptionChip key={quick.en} active={noteTokens.includes(label)} onClick={() => toggleQuickNote(label)}>{label}</OptionChip>
-              })}
+                return <OptionChip key={quick.en} active={noteTokens.includes(label)} onClick={() => toggleQuickNote(label)} className="dish-option">{label}</OptionChip>
+              })}</div>}
             </div>}
           </section>
         </div>
@@ -206,7 +197,7 @@ export function DishPage({
 
       <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-line bg-white px-5 pt-3 pb-[max(28px,env(safe-area-inset-bottom))]">
         <div className="min-w-16 shrink-0">
-          <span className="block text-caption text-ink-2">{strings.subtotal[lang]}</span>
+          <span className="sr-only">{strings.subtotal[lang]}</span>
           <Price value={price * n} className="block text-title font-semibold" />
         </div>
         <Button disabled={dish.soldOut} onClick={() => onAdd(opts, note, n)} className="min-w-max flex-1 disabled:opacity-50 max-[359px]:basis-full">

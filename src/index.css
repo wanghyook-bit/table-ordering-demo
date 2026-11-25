@@ -278,3 +278,9 @@
 .cart-item-bottom { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:4px; }
 .cart-item-price { color:#1d2128; font-size:17px; font-weight:600; }
 .cart-amount-section { margin-top:20px; padding-top:8px; border-top:1px solid #efece9; }
+
+/* Compact pill options on the dish detail screen. */
+.dish-detail-sections > section { margin-top: 28px; }
+.dish-detail-sections > div + section { margin-top: 20px; }
+.dish-option { min-height:36px; border-radius:9999px; padding:0 14px; font-size:14px; line-height:20px; }
+.confirm-note-toggle span { overflow-wrap:anywhere; text-align:right; }
