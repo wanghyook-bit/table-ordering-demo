@@ -218,3 +218,10 @@
 :is(.order-design, .payment-design) section:last-child { padding-bottom: 24px; }
 :is(.order-design, .payment-design) footer { padding: 12px 20px max(28px,env(safe-area-inset-bottom)); }
 :is(.order-design, .payment-design) footer button { min-height: 52px; font-size: 15px; }
+
+.order-success { display:flex; flex-direction:column; align-items:center; gap:12px; padding:4px 0 12px; font-size:20px; line-height:23px; }
+.order-success img { width:165px; height:auto; }
+.confirm-note-toggle { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; text-align:left; font-size:17px; }
+.confirm-note-toggle span { display:flex; align-items:center; gap:8px; color:#4a4f58; font-size:14px; min-width:0; }
+.confirm-actions button:disabled { background:#ddd9d5; color:#fff; opacity:1; }
+:is(.confirm-design,.order-design) > header h1 { font-size:20px; line-height:23px; }

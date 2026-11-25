@@ -137,14 +137,14 @@ export function OrderDetail({
     const description = completed ? undefined : allPaid ? t(strings.merchantAccepted) : (lang === 'en' ? 'Please complete payment' : '請完成支付')
     const showPay = online && remaining > 0
     return (
-    <Page className="order-design" title={lang === 'en' ? 'Order details' : '訂單詳情'} onBack={onClose} footer={(canAddDishes || showPay) && (
-      showPay ? <ActionBar label={t(strings.balanceDue)} total={remaining}>
-        {canAddDishes && <Button variant={showPay ? 'secondary' : 'primary'} onClick={onAddMore} className="flex-1">{t(strings.addDishes)}</Button>}
-        {showPay && <Button onClick={onPay} className="flex-1">{t(strings.pay)}</Button>}
-      </ActionBar> : <Button onClick={onAddMore} className="w-full">{t(strings.addDishes)}</Button>
+    <Page className="order-design" title={lang === 'en' ? 'Order details' : '訂單詳情'} onBack={onClose} footer={(canAddDishes || showPay || allPaid) && (
+      <div className="confirm-actions">
+        {canAddDishes && <Button variant="secondary" onClick={onAddMore} className="flex-1">{t(strings.addDishes)}</Button>}
+        {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid} className="flex-1">{t(strings.pay)}</Button>}
+      </div>
     )}>
       <Section>
-        <StatusPanel variant="row" tone={allPaid ? 'success' : 'pending'} icon={allPaid ? <Check className="size-5" aria-hidden="true" /> : <Clock className="size-5" aria-hidden="true" />} title={title} description={description} />
+        {allPaid ? <div className="order-success"><img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} alt="" /><strong>{lang === 'en' ? 'Payment successful' : '付款成功'}</strong></div> : <StatusPanel variant="row" tone="pending" icon={<Clock className="size-5" aria-hidden="true" />} title={title} description={description} />}
         <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode="dine" guests={guests} lang={lang} /></div>
       </Section>
       <Section
@@ -160,6 +160,7 @@ export function OrderDetail({
               lang={lang}
               amounts={round.quote.rows}
               status="ordered"
+              showRound={rounds.length > 1}
             />
           ))}
         </div>
@@ -167,14 +168,9 @@ export function OrderDetail({
       <Section title={lang === 'en' ? 'Amount details' : '金額明細'}>
         <FeeRows quote={bill.quote} tip={bill.tip} lang={lang} totalLabel={t(strings.billTotal)} />
         <dl className="mt-3 space-y-2 border-t border-line pt-3">
-          <Row k={t(strings.confirmedPaid)} v={money(paid)} />
-          <Row k={t(strings.balanceDue)} v={money(remaining)} strong />
+          <Row k={payments.length > 0 ? <button type="button" onClick={() => setHistoryOpen(true)} className="inline-flex items-center gap-1">{t(strings.confirmedPaid)} <ChevronRight size={16} /></button> : t(strings.confirmedPaid)} v={money(paid)} strong />
+          <Row k={t(strings.balanceDue)} v={<span className="text-[#ff7a30]">{money(remaining)}</span>} strong />
         </dl>
-        {payments.length > 0 && (
-          <TextButton weight="medium" className="mt-2 gap-1" onClick={() => setHistoryOpen(true)}>
-            {t(strings.viewPayments)} <ChevronRight className="size-4" aria-hidden="true" />
-          </TextButton>
-        )}
       </Section>
       <Section title={lang === 'en' ? 'Order information' : '訂單資訊'}>
         <dl className="space-y-2"><Row k={lang === 'en' ? 'Order number' : '訂單號'} v={`#${orderNo}`} />{orderNote && <Row k={lang === 'en' ? 'Order note' : '訂單備註'} v={orderNote} />}</dl>

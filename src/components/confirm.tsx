@@ -60,6 +60,7 @@ export function ConfirmPage({
 }) {
   const t = (s: L10n) => s[lang]
   const [expanded, setExpanded] = useState(false)
+  const [noteOpen, setNoteOpen] = useState(false)
   const valid = hasValidOrderContact(mode, contact)
   const combined = table && previousRounds.length ? calculateBill([...previousRounds, { id: 0, lines, mode, quote, time: '' }], payments) : null
 
@@ -123,7 +124,7 @@ export function ConfirmPage({
           </div>
         </div>
       </Section>
-      <Section title={t(strings.receiptBreakdown)}>
+      <Section title={lang === 'en' ? 'Amount details' : '金額明細'}>
         {combined && combined.paid > 0 ? (
           <>
             <FeeRows quote={combined.quote} tip={combined.tip} lang={lang} />
@@ -137,7 +138,7 @@ export function ConfirmPage({
           <FeeRows quote={combined?.quote ?? quote} tip={combined?.tip} lang={lang} totalLabel={t(feeText.estimate)} />
         )}
       </Section>
-      {table && <Section title={lang === 'en' ? 'Order note' : '訂單備註'}><textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)} rows={2} placeholder={lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求'} className={textareaClass} /></Section>}
+      {table && <Section><button type="button" className="confirm-note-toggle" onClick={() => setNoteOpen(!noteOpen)} aria-expanded={noteOpen}><strong>{lang === 'en' ? 'Note' : '備註'}</strong><span>{orderNote || (lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求')} <ChevronDown size={16} /></span></button>{noteOpen && <textarea value={orderNote} onChange={(e) => setOrderNote(e.target.value)} rows={2} placeholder={lang === 'en' ? 'Preferences or requests' : '口味、偏好等要求'} className={`${textareaClass} mt-2`} />}</Section>}
     </Page>
   )
 }
