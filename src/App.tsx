@@ -131,7 +131,7 @@ export default function App() {
   const [paymentResult, setPaymentResult] = useState<TablePaymentResult | null>(savedSession?.paymentResult ?? null)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.tablePaymentOpen ? 'pay' : savedSession?.pendingRound ? 'confirm' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'neutral' } | null>(null)
   const [detailFromList, setDetailFromList] = useState(false)
   const [active, setActive] = useState('all')
   const [scrollY, setScrollY] = useState(0)
@@ -207,7 +207,7 @@ export default function App() {
   // Customisable dishes open the detail page; simple ones add straight away.
   const lockedMessage = uiText(lang, 'ordering_unavailable_4f1f3')
   const quickAdd = (dish: Dish, returnTo?: 'search') => {
-    if (!canOrder) { setToast(lockedMessage); return }
+    if (!canOrder) { setToast({ message: lockedMessage }); return }
     if (isCustomizable(dish)) setPage({ dish, returnTo })
     else addLine(dish, [], '', 1)
   }
@@ -504,7 +504,7 @@ export default function App() {
             cartLines={lines.filter(line => line.dish.id === page.dish.id)}
             onClose={() => setPage(page.returnTo ?? null)}
             onAdd={(opts, note, qty, originalKey) => {
-              if (!canOrder) { setToast(lockedMessage); setPage(null); return }
+              if (!canOrder) { setToast({ message: lockedMessage }); setPage(null); return }
               if (originalKey) {
                 const key = lineKey(page.dish.id, opts, note)
                 setLines(current => {
@@ -514,12 +514,12 @@ export default function App() {
                 })
               } else addLine(page.dish, opts, note, qty)
               setPage(null)
-              setToast(originalKey ? ({ en: 'Changes saved', hk: '已儲存修改', zh: '已保存修改' }[lang]) : t(strings.added))
+              setToast({ message: originalKey ? ({ en: 'Changes saved', hk: '已儲存修改', zh: '已保存修改' }[lang]) : t(strings.added) })
             }}
           />
         )}
 
-        {page === 'member' && <MemberPage lang={lang} member={member} loggedIn={memberLoggedIn} onRegister={(next) => { setMember(next); setMemberLoggedIn(true); setToast(uiText(lang, 'membership_ready_4f377')) }} onLogout={() => setMemberLoggedIn(false)} onClose={() => setPage(null)} />}
+        {page === 'member' && <MemberPage lang={lang} member={member} loggedIn={memberLoggedIn} onRegister={(next) => { setMember(next); setMemberLoggedIn(true); setToast({ message: uiText(lang, 'membership_ready_4f377') }) }} onLogout={() => setMemberLoggedIn(false)} onClose={() => setPage(null)} />}
 
         <div className="contents" inert={paymentResult !== null || (tablePaymentOpen && !checkingPayment)}>
           {(page === 'confirm' || (tablePaymentOpen && pendingRound)) && (
@@ -630,7 +630,7 @@ export default function App() {
                 }
               }}
               onFinish={table ? () => setPage(null) : resetSession}
-              onCopyOrderNumber={() => setToast(uiText(lang, 'order_number_copied'))}
+              onCopyOrderNumber={() => setToast({ message: uiText(lang, 'order_number_copied'), tone: 'success' })}
             />
           )}
         </div>
@@ -674,7 +674,7 @@ export default function App() {
               setCheckingPayment(false)
               setPage(pendingRound ? 'confirm' : 'orders')
               if (prepayExpiresAt && Date.now() >= prepayExpiresAt) expireTablePayment()
-              else setToast(t(strings.paymentUnconfirmed))
+              else setToast({ message: t(strings.paymentUnconfirmed), tone: 'neutral' })
             } : undefined}
             tipsEnabled={storeRules.tips}
             orderNo={ORDER_NO}
@@ -853,14 +853,16 @@ export default function App() {
           </BottomSheet>
         )}
 
-        <span role="status" className="sr-only">{checkingPayment ? t(strings.paymentChecking) : toast}</span>
+        <span role="status" className="sr-only">{checkingPayment ? t(strings.paymentChecking) : toast?.message}</span>
         {toast && (
           <div className="animate-pop pointer-events-none absolute inset-x-0 top-14 z-[60] flex justify-center px-5">
             <div aria-hidden="true" className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-callout text-white shadow-float">
-              {toast !== t(strings.paymentUnconfirmed) && <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-action">
-                <Check className="size-3" strokeWidth={3} />
-              </span>}
-              {toast}
+              {toast.tone !== 'neutral' && (
+                <span className={`flex size-5 shrink-0 items-center justify-center rounded-full ${toast.tone === 'success' ? 'bg-success-soft text-success' : 'bg-action'}`}>
+                  <Check className="size-3" strokeWidth={3} />
+                </span>
+              )}
+              {toast.message}
             </div>
           </div>
         )}
