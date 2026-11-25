@@ -4,9 +4,28 @@
     <!-- figma:head-start -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <link rel="preload" as="image" href="%BASE_URL%assets/hong-kong-cafe-banner.webp" fetchpriority="high" />
-    <link rel="preload" as="image" href="%BASE_URL%dish-thumbnails/baked-pork-rice.webp" fetchpriority="high" />
-    <link rel="preload" as="image" href="%BASE_URL%dish-thumbnails/char-siu-egg-rice.webp" fetchpriority="high" />
+    <script>
+      const entry = new URLSearchParams(location.search);
+      const opensMenu = ['table', 'store'].includes(entry.get('code')) || ['fees', 'postpay'].includes(entry.get('demo'));
+      const trialReload = entry.get('code') === 'table' && entry.get('trial') === '1'
+        && performance.getEntriesByType('navigation')[0]?.type === 'reload';
+      const opensTrial = trialReload || (!entry.has('code') && !entry.has('demo'));
+      const images = opensTrial ? [] : opensMenu
+        ? [
+            '%BASE_URL%assets/hong-kong-cafe-banner-optimized.webp',
+            '%BASE_URL%dish-thumbnails/baked-pork-rice.webp',
+            '%BASE_URL%dish-thumbnails/char-siu-egg-rice.webp',
+          ]
+        : ['%BASE_URL%assets/welcome-hero-optimized.webp'];
+      images.forEach((src, index) => {
+        const preload = document.createElement('link');
+        preload.rel = 'preload';
+        preload.as = 'image';
+        if (index === 0) preload.setAttribute('fetchpriority', 'high');
+        preload.href = src;
+        document.head.append(preload);
+      });
+    </script>
     <title><!-- figma:title --></title>
     <!-- figma:head-end -->
   </head>

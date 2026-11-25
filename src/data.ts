@@ -3,9 +3,9 @@ export type Lang = keyof L10n
 
 const u = (id: string) => `${import.meta.env.BASE_URL}dishes/${id}.webp`
 
-export const HERO = `${import.meta.env.BASE_URL}assets/welcome-hero.webp`
+export const HERO = `${import.meta.env.BASE_URL}assets/welcome-hero-optimized.webp`
 
-export const HOME_HERO = `${import.meta.env.BASE_URL}assets/hong-kong-cafe-banner.webp`
+export const HOME_HERO = `${import.meta.env.BASE_URL}assets/hong-kong-cafe-banner-optimized.webp`
 export const HOME_AVATAR = `${import.meta.env.BASE_URL}assets/member-avatar.webp`
 
 export type Category = { id: string; name: L10n; thumb: string }
@@ -35,9 +35,9 @@ export const categories: Category[] = [
   { id: 'sets', name: L('Set meals', '精選套餐', '精选套餐'), thumb: `${import.meta.env.BASE_URL}dishes/baked-pork-rice.webp` },
   { id: 'dimsum', name: L('Hong Kong Snacks', '港式小食', '港式小食'), thumb: u('1558226933-792c5fe24e3b') },
   { id: 'mains', name: L('Tea Room Classics', '冰室常餐', '冰室常餐'), thumb: `${import.meta.env.BASE_URL}dishes/baked-pork-rice.webp` },
-  { id: 'roast', name: L('Roast & Rice', '燒味飯', '烧味饭'), thumb: u('1785899578127-f3883106c735') },
-  { id: 'noodles', name: L('Noodles', '粉麵', '粉面'), thumb: u('1763994685090-c0927ff195d1') },
-  { id: 'sweets', name: L('Milk Tea & Sweets', '奶茶甜品', '奶茶甜品'), thumb: u('1607914770021-82956c49ec03') },
+  { id: 'roast', name: L('Roast & Rice', '燒味飯', '烧味饭'), thumb: u('honey-char-siu-rice') },
+  { id: 'noodles', name: L('Noodles', '粉麵', '粉面'), thumb: u('wonton-noodles') },
+  { id: 'sweets', name: L('Milk Tea & Sweets', '奶茶甜品', '奶茶甜品'), thumb: u('hong-kong-egg-tarts') },
 ]
 
 const basket = L('basket', '籠', '笼')
@@ -107,7 +107,7 @@ export const dishes: Dish[] = [
     desc: L('Iberico pork shoulder, slow roasted and lacquered with honey.', '西班牙黑毛豬肩肉，慢火燒製，蜜汁亮澤。', '西班牙黑毛猪肩肉，慢火烧制，蜜汁亮泽。'),
     price: 52,
     unit: plate,
-    image: u('1768204037765-2c744f4330ca'),
+    image: u('honey-char-siu-rice'),
   },
   {
     id: 'm1',
@@ -126,7 +126,7 @@ export const dishes: Dish[] = [
     desc: L('Wok-fried rice noodles with beef and black pepper.', '河粉大火快炒，牛肉嫩滑，黑椒香濃。', '河粉大火快炒，牛肉嫩滑，黑椒香浓。'),
     price: 68,
     unit: plate,
-    image: u('1561282664-b780e60a3e7f'),
+    image: u('black-pepper-beef-ho-fun'),
   },
   {
     id: 'n1',
@@ -144,7 +144,7 @@ export const dishes: Dish[] = [
     desc: L('Flaky puff pastry with silky egg custard, fresh from the oven.', '千層酥皮，蛋漿嫩滑，即日新鮮出爐。', '千层酥皮，蛋浆嫩滑，即日新鲜出炉。'),
     price: 32,
     unit: piece,
-    image: u('1607914770021-82956c49ec03'),
+    image: u('hong-kong-egg-tarts'),
   },
   {
     id: 'sw2',
@@ -171,7 +171,7 @@ export const dishes: Dish[] = [
     desc: L('Ceylon black tea with fresh lemon slices.', '錫蘭紅茶配鮮檸檬片。', '锡兰红茶配鲜柠檬片。'),
     price: 30,
     unit: glass,
-    image: u('1556679343-c7306c1976bc'),
+    image: u('hong-kong-iced-lemon-tea'),
   },
 ]
 

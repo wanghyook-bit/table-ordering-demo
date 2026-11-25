@@ -78,7 +78,7 @@ function demoCart(): CartLine[] {
 type OrderRequest = { status: 'waiting' | 'cancelled'; round: Round }
 
 type Sheet = null | 'language' | 'cart' | 'categories' | 'leave-payment' | 'switch-table'
-type Page = null | 'search' | 'confirm' | 'orders' | 'my-orders' | 'pay' | 'member' | { dish: Dish; returnTo?: 'search' }
+type Page = null | 'search' | 'confirm' | 'orders' | 'my-orders' | 'pay' | 'member' | { dish: Dish; returnTo?: 'search' | 'cart'; editingKey?: string }
 
 export default function App() {
   // Keep the 390 × 844 preview intact when the desktop side panel is short.
@@ -375,12 +375,12 @@ export default function App() {
           />
         )}
 
-        <div {...menuSwipe} ref={scrollRef} inert={!entered || page !== null} onScroll={onScroll} className={`no-scrollbar h-full overflow-y-auto ${count > 0 ? 'pb-28' : 'pb-6'}`}>
+        {entered && <div {...menuSwipe} ref={scrollRef} inert={page !== null} onScroll={onScroll} className={`no-scrollbar h-full overflow-y-auto ${count > 0 ? 'pb-28' : 'pb-6'}`}>
           {showMenuNotice && <div role="status" className="relative z-10 bg-pending-soft px-5 py-3 text-center text-callout font-medium text-pending">{storeState === 'closed' ? (uiText(lang, 'the_store_is_closed_and_cannot_take_or_42d99')) : storeState === 'offline' ? (uiText(lang, 'the_store_is_offline_and_cannot_take_o_55628')) : (uiText(lang, 'menu_browsing_only_f84fe'))}</div>}
           {/* Hero */}
           <header className="relative z-0 bg-banner-edge sm:pointer-fine:pt-11">
               <div className="relative aspect-[16/9] overflow-hidden bg-tile">
-              <img src={HOME_HERO} fetchPriority="high" width={960} height={540} alt="" className="h-full w-full object-cover" />
+              <img src={HOME_HERO} fetchPriority="high" width={800} height={450} alt="" className="h-full w-full object-cover" />
               <div className="home-banner-copy">
                 <div className="home-banner-brand">
                   <strong className="home-banner-name">{t(strings.restaurant)}</strong>
@@ -470,7 +470,7 @@ export default function App() {
                       lang={lang}
                       qty={qtyByDish[d.id] ?? 0}
                       ordered={orderedByDish[d.id] ?? 0}
-                      prioritizeImage={entered && c.id === categories[0].id && index < 2}
+                      prioritizeImage={c.id === categories[0].id && index < 2}
                       onOpen={() => setPage({ dish: d })}
                       onAdd={() => quickAdd(d)}
                     />
@@ -478,7 +478,7 @@ export default function App() {
               </div>
             </section>
           ))}
-        </div>
+        </div>}
 
         {entered && !page && count > 0 && <CartBar count={count} total={quote.total / 100} lang={lang} bump={bump} onOpen={() => request?.status === 'waiting' ? setPage('orders') : setSheet('cart')} />}
 
@@ -497,14 +497,18 @@ export default function App() {
 
         {page && typeof page === 'object' && (
           <DishPage
-            key={page.dish.id}
+            key={page.editingKey ?? page.dish.id}
             dish={page.dish}
             lang={lang}
             ordered={orderedByDish[page.dish.id] ?? 0}
-            cartLines={lines.filter(line => line.dish.id === page.dish.id)}
-            onClose={() => setPage(page.returnTo ?? null)}
-            onAdd={(opts, note, qty, originalKey) => {
+            initialLine={lines.find(line => line.key === page.editingKey)}
+            onClose={() => {
+              setPage(page.returnTo === 'search' ? 'search' : null)
+              if (page.returnTo === 'cart') setSheet('cart')
+            }}
+            onAdd={(opts, note, qty) => {
               if (!canOrder) { setToast({ message: lockedMessage }); setPage(null); return }
+              const originalKey = page.editingKey
               if (originalKey) {
                 const key = lineKey(page.dish.id, opts, note)
                 setLines(current => {
@@ -514,6 +518,7 @@ export default function App() {
                 })
               } else addLine(page.dish, opts, note, qty)
               setPage(null)
+              if (page.returnTo === 'cart') setSheet('cart')
               setToast({ message: originalKey ? ({ en: 'Changes saved', hk: '已儲存修改', zh: '已保存修改' }[lang]) : t(strings.added) })
             }}
           />
@@ -820,7 +825,10 @@ export default function App() {
               <>
                 <ul className="confirm-items">
                   {lines.map((l) => (
-                    <CartRow key={l.key} line={l} lang={lang} amount={quote.rows[l.key]}>
+                    <CartRow key={l.key} line={l} lang={lang} amount={quote.rows[l.key]} onEdit={() => {
+                      setSheet(null)
+                      setPage({ dish: l.dish, editingKey: l.key, returnTo: 'cart' })
+                    }}>
                       <Stepper qty={l.qty} onMinus={() => changeLine(l.key, -1)} onPlus={() => changeLine(l.key, 1)} />
                     </CartRow>
                   ))}

@@ -97,7 +97,7 @@ export function ItemList({ lines, lang, amounts, status }: { lines: CartLine[]; 
   return <ul className="confirm-items">{lines.map((line) => {
     const options = optsLabel(line.opts, line.note, lang)
     return <li key={line.key} className="confirm-item">
-      <DishImage src={line.dish.image} alt={line.dish.name[lang]} className="confirm-item-image" />
+      <DishImage src={line.dish.image} dishId={line.dish.id} alt={line.dish.name[lang]} className="confirm-item-image" />
       <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status rounded-full ${status}`}>{status === 'ordered' ? (uiText(lang, 'ordered_fc521')) : (uiText(lang, 'not_ordered_95579'))}</span>}<strong>{line.dish.name[lang]}</strong></div>
         {options && <p className="confirm-options">{options}</p>}<div className="confirm-item-bottom"><span>×{line.qty}</span><strong>{money((amounts[line.key] ?? 0) / 100)}</strong></div></div>
     </li>
@@ -199,7 +199,7 @@ export function OrderDetail({
       <Section>
         <div className="order-success order-status-illustration" data-tone={allPaid ? undefined : tone}>
           {allPaid
-            ? <img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} width={280} height={150} alt="" />
+            ? <img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.webp`} width={280} height={150} alt="" />
             : <div className="order-status-art" aria-hidden="true"><span className="order-status-orbit" /><span className="order-status-circle"><StatusIcon size={44} strokeWidth={2.5} /></span></div>}
           <strong>{allPaid ? uiText(lang, 'payment_successful_e6774') : label}</strong>{description && <span className="order-status-description">{description}</span>}
         </div>

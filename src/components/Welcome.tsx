@@ -9,7 +9,7 @@ export function Welcome({ lang, onLanguage, onEnter }: { lang: Lang; onLanguage:
   const t = (s: { en: string; hk: string; zh: string }) => s[lang]
   return (
     <div className="absolute inset-0 z-[45] overflow-hidden bg-ink text-white">
-      <img src={HERO} alt="Warm restaurant interior" className="absolute inset-0 h-full w-full scale-[1.15] object-cover" />
+      <img src={HERO} fetchPriority="high" alt="Warm restaurant interior" className="absolute inset-0 h-full w-full scale-[1.15] object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/25 to-black/85" />
 
       <button

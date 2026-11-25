@@ -1,6 +1,6 @@
 import { uiText } from '../i18n'
 import { useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, CupSoda, Search, ShoppingBag } from 'lucide-react'
+import { ChevronDown, ChevronRight, CupSoda, Pencil, Search, ShoppingBag } from 'lucide-react'
 import { dishHints, dishes, dishOptions, dishTags, strings, type Dish, type L10n, type Lang, type OptionGroup } from '../data'
 import { useBackSwipe } from '../gestures'
 import { useExitMotion } from '../exit-motion'
@@ -54,10 +54,11 @@ export function DishCard({
   return (
     // Cards share a row height. Long names can wrap without displacing the price row.
     <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white ${dish.soldOut ? 'opacity-60' : ''}`}>
-      <button onClick={onOpen} className="relative block overflow-hidden">
+      <button onClick={onOpen} aria-label={`${uiText(lang, 'view_details_fe8b1')} · ${dish.name[lang]}`} className="relative block overflow-hidden">
         <DishImage
           src={dish.image}
           alt={dish.name[lang]}
+          defer={!prioritizeImage}
           loading={prioritizeImage ? 'eager' : 'lazy'}
           fetchPriority={prioritizeImage ? 'high' : 'low'}
           className="aspect-[4/3] w-full transition duration-500 hover:scale-105"
@@ -108,20 +109,18 @@ export function DishPage({
   dish,
   lang,
   ordered,
-  cartLines,
+  initialLine,
   onClose,
   onAdd,
 }: {
   dish: Dish
   lang: Lang
   ordered: number
-  cartLines: CartLine[]
+  initialLine?: CartLine
   onClose: () => void
-  onAdd: (opts: string[], note: string, qty: number, originalKey?: string) => void
+  onAdd: (opts: string[], note: string, qty: number) => void
 }) {
   const groups = dishOptions[dish.id] ?? []
-  const [editingKey, setEditingKey] = useState<string | undefined>(cartLines[0]?.key)
-  const initialLine = cartLines[0]
   const [sel, setSel] = useState<Record<string, string[]>>(() =>
     Object.fromEntries(groups.map((g) => [g.id, initialLine ? g.options.filter(o => initialLine.opts.includes(o.id)).map(o => o.id) : g.type === 'single' ? [g.options[0].id] : []])),
   )
@@ -155,7 +154,7 @@ export function DishPage({
       <BackButton onImage onClick={dismiss} className="absolute top-2 left-3 z-10 sm:pointer-fine:top-11" />
       <div className="no-scrollbar flex-1 overflow-y-auto pb-6">
         <div className="bg-tile">
-          <DishImage src={dish.image} alt={dish.name[lang]} fullSize className="aspect-[16/10] w-full" />
+          <DishImage src={dish.image} dishId={dish.id} alt={dish.name[lang]} fullSize loading="eager" fetchPriority="high" className="aspect-[16/10] w-full" />
         </div>
         <div className="border-b border-line px-5 pt-5 pb-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -171,17 +170,6 @@ export function DishPage({
         </div>
 
         <div className="dish-detail-sections bg-white px-5 pt-3">
-          {cartLines.length > 0 && <div className="flex flex-wrap gap-2">{cartLines.map((line, index) => <OptionChip key={line.key} className="dish-option" active={editingKey === line.key} onClick={() => {
-            setEditingKey(line.key)
-            setSel(Object.fromEntries(groups.map(g => [g.id, g.options.filter(o => line.opts.includes(o.id)).map(o => o.id)])))
-            setNote(line.note)
-            setN(line.qty)
-          }}>{optsLabel(line.opts, line.note, lang) || `${lang === 'en' ? 'Option' : lang === 'hk' ? '規格' : '规格'} ${index + 1}`} ×{line.qty}</OptionChip>)}<OptionChip className="dish-option" active={!editingKey} onClick={() => {
-            setEditingKey(undefined)
-            setSel(Object.fromEntries(groups.map(g => [g.id, g.type === 'single' ? [g.options[0].id] : []])))
-            setNote('')
-            setN(1)
-          }}>{({en: 'Add another option', hk: '新增其他規格', zh: '新增其他规格'}[lang])}</OptionChip></div>}
           <div className="flex min-h-11 items-center justify-between gap-3">
             <h2 className="text-body font-semibold text-ink">{t(strings.quantity)}</h2>
             {dish.soldOut ? <span className="text-callout text-muted">{t(strings.soldOut)}</span> : (
@@ -227,8 +215,8 @@ export function DishPage({
           <span className="sr-only">{strings.subtotal[lang]}</span>
           <Price value={price * n} className="block text-title font-semibold" />
         </div>
-        <Button disabled={dish.soldOut} onClick={() => onAdd(opts, note, n, editingKey)} className="min-w-0 flex-1">
-          {dish.soldOut ? t(strings.soldOut) : editingKey ? ({en: 'Save changes', hk: '儲存修改', zh: '保存修改'}[lang]) : t(strings.add)}
+        <Button disabled={dish.soldOut} onClick={() => onAdd(opts, note, n)} className="min-w-0 flex-1">
+          {dish.soldOut ? t(strings.soldOut) : initialLine ? ({en: 'Save changes', hk: '儲存修改', zh: '保存修改'}[lang]) : t(strings.add)}
         </Button>
       </div>
     </div>
@@ -318,13 +306,19 @@ export function SearchOverlay({
 }
 
 /** Flat list row for a cart line (thumb · name · options · price · trailing control). */
-export function CartRow({ line, lang, amount, children }: { line: CartLine; lang: Lang; amount: number; children?: ReactNode }) {
+export function CartRow({ line, lang, amount, children, onEdit }: { line: CartLine; lang: Lang; amount: number; children?: ReactNode; onEdit: () => void }) {
   const label = optsLabel(line.opts, line.note, lang)
   return <li className="cart-item">
-    <DishImage src={line.dish.image} alt={line.dish.name[lang]} className="confirm-item-image" />
+    <DishImage src={line.dish.image} dishId={line.dish.id} alt={line.dish.name[lang]} className="confirm-item-image" />
     <div className="cart-item-info">
-      <p className="cart-item-name">{line.dish.name[lang]}</p>
-      {label && <p className="confirm-options">{label}</p>}
+      <button type="button" className="flex min-h-11 w-full items-center justify-between gap-2 text-left" onClick={onEdit}>
+        <span className="min-w-0">
+          <span className="cart-item-name block">{line.dish.name[lang]}</span>
+          {label && <span className="confirm-options block">{label}</span>}
+        </span>
+        <Pencil className="size-4 shrink-0 text-ink-2" aria-hidden="true" />
+        <span className="sr-only">{uiText(lang, 'edit_cart_item')}</span>
+      </button>
       <div className="cart-item-bottom"><Price value={amount / 100} className="cart-item-price" />{children}</div>
     </div>
   </li>

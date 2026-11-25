@@ -78,6 +78,7 @@ const messages = {
   pay_550a8: { en: 'Pay', hk: '去支付', zh: '去支付' },
   dining_option_b5bd3: { en: 'Dining option', hk: '用餐方式', zh: '用餐方式' },
   items_2f38f: { en: 'Items', hk: '餐品詳情', zh: '餐品详情' },
+  edit_cart_item: { en: 'Edit cart item', hk: '編輯餐品', zh: '编辑餐品' },
   show_less_aff96: { en: 'Show less', hk: '收起', zh: '收起' },
   view_more_items_7fd3a: { en: 'View more items', hk: '展開查看更多菜品', zh: '展开查看更多菜品' },
   amount_details_25bdd: { en: 'Bill breakdown', hk: '金額明細', zh: '金额明细' },
