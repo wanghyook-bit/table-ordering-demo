@@ -297,7 +297,7 @@ export function DishImage({ src, alt, className = '' }: { src?: string; alt: str
         <ShoppingBag className="h-1/3 w-1/3 text-muted/40" strokeWidth={1.5} />
       </div>
     )
-  return <img src={src} alt={alt} loading="lazy" onError={() => setFailed(true)} className={`object-cover ${className}`} />
+  return <img src={src} alt={alt} decoding="async" onError={() => setFailed(true)} className={`object-cover ${className}`} />
 }
 
 /** 56px list thumbnail — the only thumbnail size outside the menu grid. */

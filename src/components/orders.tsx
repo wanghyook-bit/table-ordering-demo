@@ -10,9 +10,17 @@ import { StoreCard } from './store'
 import { ActionBar, BottomSheet, Button, DishImage, Empty, money, Page, Price, Row, Section, StatusPanel, TableIdentity, Tag, TextButton } from './ui'
 
 /** One submission to the kitchen (first order or an add-on). Paid later. */
-export type Round = { id: number; lines: CartLine[]; mode: Mode; quote: PriceQuote; time: string }
+export type Round = { id: number; lines: CartLine[]; mode: Mode; quote: PriceQuote; time: string; createdAt?: string }
 export type PaymentRecord = { id: string; orderNo: number; methodId: string; name: L10n; amount: number; tip: number; paidAt: Date }
 type OrderStatus = 'waiting' | 'accepted' | 'cancelled'
+
+export function formatOrderTime(round?: Round): string | undefined {
+  if (!round?.createdAt) return round?.time
+  const date = new Date(round.createdAt)
+  if (Number.isNaN(date.getTime())) return round.time
+  const two = (value: number) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())} ${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`
+}
 
 export function calculateBill(rounds: Round[], payments: PaymentRecord[]) {
   const subtotal = rounds.reduce((sum, round) => sum + round.quote.subtotal, 0)
@@ -131,22 +139,28 @@ export function OrderDetail({
 
   const StatusIcon = status === 'cancelled' ? X : Clock
 
-  if (table && status === 'accepted') {
+  if (table && status) {
     const completed = allPaid && (!manualSettlement || settled)
-    const title = completed ? (uiText(lang, 'completed_f1a22'))
-      : allPaid ? (uiText(lang, 'paid_86900')) : (uiText(lang, 'awaiting_payment_99cbe'))
-    const description = completed ? undefined : allPaid ? t(strings.merchantAccepted) : (uiText(lang, 'please_complete_payment_68e19'))
-    const showPay = online && remaining > 0
+    const title = status === 'waiting' ? t(strings.awaitingAcceptance)
+      : status === 'cancelled' ? t(strings.orderCancelled)
+      : completed ? uiText(lang, 'completed_f1a22')
+      : allPaid ? uiText(lang, 'paid_86900') : uiText(lang, 'awaiting_payment_99cbe')
+    const description = status === 'waiting' ? t(strings.payAfterAcceptance)
+      : status === 'cancelled' ? t(strings.rejectedHint)
+      : completed || allPaid || online ? undefined : uiText(lang, 'please_pay_at_the_cashier_94edf')
+    const showPay = status === 'accepted' && online && remaining > 0
     return (
-    <Page className="order-design" title={uiText(lang, 'order_details_22864')} onBack={onClose} footer={(canAddDishes || showPay || allPaid) && (
+    <Page className="order-design" title={uiText(lang, 'order_details_22864')} onBack={onClose} footer={status === 'accepted' && (canAddDishes || showPay || allPaid) && (
       <div className="confirm-actions">
         {canAddDishes && <Button variant="secondary" onClick={onAddMore} className="flex-1">{t(strings.addDishes)}</Button>}
         {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid} className="flex-1">{t(strings.pay)}</Button>}
       </div>
     )}>
       <Section>
-        {allPaid ? <div className="order-success"><img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} alt="" /><strong>{uiText(lang, 'payment_successful_e6774')}</strong></div> : <StatusPanel variant="row" tone="pending" icon={<Clock className="size-5" aria-hidden="true" />} title={title} description={description} />}
-        {!allPaid && <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode="dine" guests={guests} lang={lang} /></div>}
+        {allPaid ? <div className="order-success"><img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} alt="" /><strong>{uiText(lang, 'payment_successful_e6774')}</strong></div> : <div className={`order-success order-status-illustration ${status === 'cancelled' ? 'is-cancelled' : ''}`}>
+          <div className="order-status-art" aria-hidden="true"><span className="order-status-orbit" /><span className="order-status-circle">{status === 'cancelled' ? <X size={44} strokeWidth={2.5} /> : <Clock size={44} strokeWidth={2.5} />}</span></div>
+          <strong>{title}</strong>{description && <span className="order-status-description">{description}</span>}
+        </div>}
       </Section>
       <Section
         title={uiText(lang, 'items_2f38f')}
@@ -160,20 +174,20 @@ export function OrderDetail({
               lines={round.lines}
               lang={lang}
               amounts={round.quote.rows}
-              status="ordered"
+              status={status === 'accepted' ? 'ordered' : undefined}
               showRound={false}
             />
           ))}
         </div>
       </Section>
+      {status === 'waiting' && <Section title={t(strings.simulateMerchant)}><div className="flex gap-3"><Button size="md" variant="secondary" onClick={onReject} className="flex-1">{t(strings.simulateReject)}</Button><Button size="md" onClick={onAccept} className="flex-1">{t(strings.simulateAccept)}</Button></div></Section>}
       <Section title={uiText(lang, 'amount_details_25bdd')}>
-        <OrderAmounts quote={bill.quote} tip={bill.tip} total={total} paid={paid} remaining={remaining} lang={lang} onPaymentHistory={payments.length ? () => setHistoryOpen(true) : undefined} />
+        <OrderAmounts quote={bill.quote} tip={bill.tip} total={total} paid={paid} remaining={status === 'cancelled' ? 0 : remaining} lang={lang} onPaymentHistory={payments.length ? () => setHistoryOpen(true) : undefined} />
       </Section>
       <Section title={uiText(lang, 'order_information_fd7fd')}>
         <dl className="order-information">
           <Row k={uiText(lang, 'order_number_6b17e')} v={`#${orderNo}`} />
-          {rounds[0]?.time && <Row k={uiText(lang, 'order_time_38773')} v={rounds[0].time} />}
-          {allPaid && <Row k={uiText(lang, 'table_a5616')} v={table} />}
+          {formatOrderTime(rounds[0]) && <Row k={uiText(lang, 'order_time_38773')} v={formatOrderTime(rounds[0])} />}
           {orderNote && <Row k={uiText(lang, 'order_note_756d0')} v={orderNote} />}
         </dl>
         {manualSettlement && allPaid && !settled && <TextButton tone="muted" underline className="mt-3" onClick={onSettle}>{uiText(lang, 'simulate_staff_settlement_30a6f')}</TextButton>}

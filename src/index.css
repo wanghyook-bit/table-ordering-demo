@@ -284,3 +284,43 @@
 .dish-detail-sections > div + section { margin-top: 20px; }
 .dish-option { min-height:36px; border-radius:9999px; padding:0 14px; font-size:14px; line-height:20px; }
 .confirm-note-toggle span { overflow-wrap:anywhere; text-align:right; }
+
+.my-orders-page { background:#fff; }
+.my-orders-card { padding:16px 20px; border-radius:12px; box-shadow:0 0 2px rgb(0 0 0 / 9%); }
+.my-orders-heading { align-items:center; padding:8px 0; }
+.my-orders-status.complete { color:var(--color-brand); }
+.my-orders-images { gap:12px; margin-top:0; padding:8px 0; overflow-x:auto; }
+.my-orders-image { width:60px; height:60px; }
+.my-orders-time { display:flex; justify-content:space-between; gap:12px; margin-top:16px; color:var(--color-ink-2); font-size:14px; line-height:22px; }
+.my-orders-total { margin-top:4px; line-height:22px; }
+.my-orders-total strong { font-size:15px; font-weight:500; }
+.my-orders-actions { margin-top:16px; }
+.my-orders-actions button { flex:0 1 112px; }
+
+/* Member entry and form follow the same flat surfaces and controls as order pages. */
+.member-page { background:#fff; }
+.member-page > div > section { padding:0 20px; }
+.member-page > div > section > div { border-radius:0; padding:0; }
+.member-page > div > section:first-child { padding-top:20px; }
+.member-page > div > section + section { padding-top:24px; padding-bottom:24px; }
+.member-switch { min-height:44px; }
+.member-page .member-country-code { width:100px; flex:0 0 100px; }
+.member-gender-option { width:44px; min-height:44px; border-radius:9999px; padding:0; }
+.member-entry { box-shadow:none; }
+
+/* Order states share the success page's centered visual hierarchy. */
+.order-status-illustration { text-align:center; }
+.order-status-art { width:165px; height:88px; display:flex; align-items:center; justify-content:center; position:relative; }
+.order-status-orbit { position:absolute; width:72px; height:72px; border-radius:50%; background:#fff0d4; box-shadow:0 0 0 8px #fff8eb; }
+.order-status-circle { position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center; border-radius:50%; color:white; background:linear-gradient(145deg,#ffc54d,#f18a12); box-shadow:0 3px 9px #e59a4a80; }
+.order-status-circle svg { width:32px; height:32px; }
+.order-status-illustration.is-cancelled .order-status-orbit { background:#ffe4e2; box-shadow:0 0 0 8px #fff3f2; }
+.order-status-illustration.is-cancelled .order-status-circle { background:linear-gradient(145deg,#ff8a7a,#eb504c); box-shadow:0 3px 9px #d85a5580; }
+.order-status-description { font-size:14px; line-height:21px; font-weight:400; color:var(--color-ink-2); }
+
+.home-banner-copy { position:absolute; inset:0; pointer-events:none; color:#fff2d4; container-type:inline-size; text-align:center; font-family:Georgia,"Noto Serif TC",serif; font-weight:700; text-shadow:0 1px 2px #3d281f; }
+.home-banner-name { position:absolute; top:6%; left:29%; width:42%; font-size:9cqw; line-height:1.1; letter-spacing:.06em; white-space:nowrap; }
+.home-banner-name.is-english { top:9%; font-size:5.8cqw; letter-spacing:0; }
+.home-banner-subtitle { position:absolute; top:24%; left:34%; width:32%; font-size:2.25cqw; line-height:1.1; white-space:nowrap; }
+.home-banner-left, .home-banner-right { position:absolute; bottom:9%; width:14%; font-size:2.25cqw; line-height:1.1; overflow-wrap:anywhere; }
+.home-banner-left { left:4%; } .home-banner-right { right:4%; }

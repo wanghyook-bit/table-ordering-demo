@@ -1,6 +1,6 @@
 import { uiText } from '../i18n'
 import { useState, type ReactNode } from 'react'
-import { Check, ChevronDown, ChevronRight, CupSoda, Search, ShoppingBag } from 'lucide-react'
+import { ChevronDown, ChevronRight, CupSoda, Search, ShoppingBag } from 'lucide-react'
 import { dishHints, dishes, dishOptions, dishTags, strings, type Dish, type L10n, type Lang, type OptionGroup } from '../data'
 import { useBackSwipe } from '../gestures'
 import { isCustomizable, optsLabel, unitPrice, type CartLine } from '../cart'
@@ -26,7 +26,7 @@ const dishTagIcons: Record<keyof typeof dishTags, string> = {
 
 function DishTag({ kind, lang, compact = false }: { kind: keyof typeof dishTags; lang: Lang; compact?: boolean }) {
   return (
-    <span className={`inline-flex max-w-full items-center gap-1 rounded-full border border-white/80 bg-cream text-caption font-semibold text-cocoa shadow-soft ${compact ? 'min-h-5 px-1.5' : 'min-h-6 px-2'}`}>
+    <span className={`inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full border border-white/80 bg-cream text-caption font-semibold text-cocoa shadow-soft ${compact ? 'min-h-5 px-1.5' : 'min-h-6 px-2'}`}>
       <img src={`${import.meta.env.BASE_URL}dish-icons/${dishTagIcons[kind]}.svg`} alt="" className={compact ? 'size-3.5 shrink-0' : 'size-4 shrink-0'} />
       {dishTags[kind][lang]}
     </span>
@@ -53,12 +53,9 @@ export function DishCard({
     <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-line bg-white shadow-soft ${dish.soldOut ? 'opacity-60' : ''}`}>
       <button onClick={onOpen} className="relative block overflow-hidden">
         <DishImage src={dish.image} alt={dish.name[lang]} className="aspect-[4/3] w-full transition duration-500 hover:scale-105" />
-        <span className="absolute inset-x-2 top-2 flex items-start justify-between gap-1">
+        <span className="absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-1">
           {ordered > 0 ? (
-            <Tag tone="success">
-              <Check className="size-3" strokeWidth={3} />
-              {strings.ordered[lang]} {ordered}
-            </Tag>
+            <Tag tone="brand">{strings.ordered[lang]} {ordered}</Tag>
           ) : (
             <span />
           )}
@@ -102,23 +99,27 @@ export function DishPage({
   dish,
   lang,
   ordered,
+  cartLines,
   onClose,
   onAdd,
 }: {
   dish: Dish
   lang: Lang
   ordered: number
+  cartLines: CartLine[]
   onClose: () => void
-  onAdd: (opts: string[], note: string, qty: number) => void
+  onAdd: (opts: string[], note: string, qty: number, originalKey?: string) => void
 }) {
   const groups = dishOptions[dish.id] ?? []
+  const [editingKey, setEditingKey] = useState<string | undefined>(cartLines[0]?.key)
+  const initialLine = cartLines[0]
   const [sel, setSel] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(groups.map((g) => [g.id, g.type === 'single' ? [g.options[0].id] : []])),
+    Object.fromEntries(groups.map((g) => [g.id, initialLine ? g.options.filter(o => initialLine.opts.includes(o.id)).map(o => o.id) : g.type === 'single' ? [g.options[0].id] : []])),
   )
   const swipe = useBackSwipe(onClose)
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState(initialLine?.note ?? '')
   const [noteOpen, setNoteOpen] = useState(false)
-  const [n, setN] = useState(1)
+  const [n, setN] = useState(initialLine?.qty ?? 1)
   const opts = Object.values(sel).flat()
   const price = unitPrice(dish, opts)
   const t = (s: L10n) => s[lang]
@@ -155,6 +156,17 @@ export function DishPage({
         </div>
 
         <div className="dish-detail-sections bg-white px-5 pt-3">
+          {cartLines.length > 0 && <div className="flex flex-wrap gap-2">{cartLines.map((line, index) => <OptionChip key={line.key} className="dish-option" active={editingKey === line.key} onClick={() => {
+            setEditingKey(line.key)
+            setSel(Object.fromEntries(groups.map(g => [g.id, g.options.filter(o => line.opts.includes(o.id)).map(o => o.id)])))
+            setNote(line.note)
+            setN(line.qty)
+          }}>{optsLabel(line.opts, line.note, lang) || `${lang === 'en' ? 'Option' : lang === 'hk' ? '規格' : '规格'} ${index + 1}`} ×{line.qty}</OptionChip>)}<OptionChip className="dish-option" active={!editingKey} onClick={() => {
+            setEditingKey(undefined)
+            setSel(Object.fromEntries(groups.map(g => [g.id, g.type === 'single' ? [g.options[0].id] : []])))
+            setNote('')
+            setN(1)
+          }}>{({en: 'Add another option', hk: '新增其他規格', zh: '新增其他规格'}[lang])}</OptionChip></div>}
           <div className="flex min-h-11 items-center justify-between gap-3">
             <h2 className="text-body font-semibold text-ink">{t(strings.quantity)}</h2>
             {dish.soldOut ? <span className="text-callout text-muted">{t(strings.soldOut)}</span> : (
@@ -200,8 +212,8 @@ export function DishPage({
           <span className="sr-only">{strings.subtotal[lang]}</span>
           <Price value={price * n} className="block text-title font-semibold" />
         </div>
-        <Button disabled={dish.soldOut} onClick={() => onAdd(opts, note, n)} className="min-w-max flex-1 disabled:opacity-50 max-[359px]:basis-full">
-          {dish.soldOut ? t(strings.soldOut) : t(strings.add)}
+        <Button disabled={dish.soldOut} onClick={() => onAdd(opts, note, n, editingKey)} className="min-w-max flex-1 disabled:opacity-50 max-[359px]:basis-full">
+          {dish.soldOut ? t(strings.soldOut) : editingKey ? ({en: 'Save changes', hk: '儲存修改', zh: '保存修改'}[lang]) : t(strings.add)}
         </Button>
       </div>
     </div>

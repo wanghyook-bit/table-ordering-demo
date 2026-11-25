@@ -53,12 +53,6 @@ function restoreSession() {
   } catch { return null }
 }
 
-export function hasTablePaymentToResume() {
-  if (!table) return false
-  const session = restoreSession()
-  return !!(session?.paymentResult || session?.pendingRound || session?.tablePaymentOpen)
-}
-
 function demoCart(): CartLine[] {
   if (!demo) return []
   return dishes.filter((dish) => dish.id === 'r1' || dish.id === 'sw1').map((dish) => {
@@ -262,6 +256,7 @@ export default function App() {
       mode,
       quote: latestQuote,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
     }
     if (prepay && (!rounds.length || !!table) && online) {
       setPendingRound(round)
@@ -298,7 +293,7 @@ export default function App() {
     scrollRef.current?.scrollTo({ top: 0 })
   }
 
-  const darkStatus = entered && page === null
+  const darkStatus = (entered && page === null) || page === 'my-orders' || page === 'member' || page === 'orders' || page === 'confirm'
   const categoryPillClass = (isActive: boolean) => `flex h-11 shrink-0 items-center rounded-full text-body whitespace-nowrap transition-colors ${isActive ? 'font-semibold text-brand' : 'text-muted'}`
 
   return (
@@ -322,7 +317,13 @@ export default function App() {
           {/* Hero */}
           <header className="relative z-0 bg-brand-wash sm:pointer-fine:pt-11">
               <div className="relative aspect-[16/9] overflow-hidden bg-tile">
-              <img src={HOME_HERO} fetchPriority="high" width={960} height={534} alt="麗華冰室港式茶餐廳" className="h-full w-full object-cover" />
+              <img src={HOME_HERO} fetchPriority="high" width={960} height={534} alt="" className="h-full w-full object-cover" />
+              <div className="home-banner-copy" aria-label={t(strings.restaurant)}>
+                <strong className={lang === 'en' ? 'home-banner-name is-english' : 'home-banner-name'}>{t(strings.restaurant)}</strong>
+                <span className="home-banner-subtitle">{{en:'HK CAFE · SINCE 1997', hk:'港式茶餐廳 · 始於 1997', zh:'港式茶餐厅 · 始于 1997'}[lang]}</span>
+                <span className="home-banner-left">{{en:'CHAR SIU & EGG RICE', hk:'經典叉燒煎蛋飯', zh:'经典叉烧煎蛋饭'}[lang]}</span>
+                <span className="home-banner-right">{{en:'PORK CHOP RICE & LEMON TEA', hk:'豬扒飯配凍檸茶', zh:'猪扒饭配冻柠茶'}[lang]}</span>
+              </div>
               {!table && <button type="button" aria-label={t(strings.backHome)} onClick={() => { setEntered(false); setActive('all'); scrollRef.current?.scrollTo({ top: 0 }) }} className="absolute top-3 left-3 grid size-11 place-items-center text-white drop-shadow-md sm:pointer-fine:top-14">
                 <ChevronLeft className="size-6" aria-hidden="true" />
               </button>}
@@ -354,15 +355,16 @@ export default function App() {
 
           {table && (
             <div className="mx-5 mt-3">
-              <div className="flex min-h-18 items-center justify-between gap-4 rounded-card bg-white p-4 shadow-soft">
+              <div className="member-entry flex min-h-18 items-center justify-between gap-3 rounded-card border border-line bg-white p-4">
                 <button type="button" onClick={() => setPage('member')} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left active:opacity-70">
                   <img src={HOME_AVATAR} alt="" className="size-10 shrink-0 rounded-full object-cover" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-callout font-semibold">{memberLoggedIn && member ? member.name : uiText(lang, 'welcome_please_sign_in_3b8ad')}</span>
                     <span className="mt-1 block text-caption text-ink-2">{memberLoggedIn ? (uiText(lang, 'member_7930b')) : (uiText(lang, 'member_benefits_a61a2'))}</span>
                   </span>
+                  <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-2" />
                 </button>
-                <button type="button" aria-label={uiText(lang, 'switch_table_7b2a0')} onClick={() => setToast(uiText(lang, 'scan_the_qr_code_on_your_new_table_to__cb2aa'))} className="flex min-h-11 shrink-0 items-center justify-end text-right text-ink active:opacity-70">
+                <button type="button" aria-label={uiText(lang, 'switch_table_7b2a0')} onClick={() => setToast(uiText(lang, 'scan_the_qr_code_on_your_new_table_to__cb2aa'))} className="flex min-h-11 shrink-0 items-center justify-end border-l border-line pl-3 text-right text-ink active:opacity-70">
                   <span className="text-headline font-semibold tabular-nums">{table}</span>
                 </button>
               </div>
@@ -432,12 +434,20 @@ export default function App() {
             dish={page.dish}
             lang={lang}
             ordered={orderedByDish[page.dish.id] ?? 0}
+            cartLines={lines.filter(line => line.dish.id === page.dish.id)}
             onClose={() => setPage(null)}
-            onAdd={(opts, note, qty) => {
+            onAdd={(opts, note, qty, originalKey) => {
               if (!canOrder) { setToast(lockedMessage); setPage(null); return }
-              addLine(page.dish, opts, note, qty)
+              if (originalKey) {
+                const key = lineKey(page.dish.id, opts, note)
+                setLines(current => {
+                  const remaining = current.filter(line => line.key !== originalKey)
+                  const match = remaining.find(line => line.key === key)
+                  return match ? remaining.map(line => line.key === key ? { ...line, qty: line.qty + qty } : line) : [...remaining, { key, dish: page.dish, opts, note: note.trim(), qty }]
+                })
+              } else addLine(page.dish, opts, note, qty)
               setPage(null)
-              setToast(t(strings.added))
+              setToast(originalKey ? ({ en: 'Changes saved', hk: '已儲存修改', zh: '已保存修改' }[lang]) : t(strings.added))
             }}
           />
         )}
@@ -482,7 +492,7 @@ export default function App() {
 
           {(page === 'orders' || (tablePaymentOpen && !pendingRound)) && (
             <OrderDetail
-              rounds={rounds}
+              rounds={request ? [request.round] : rounds}
               bill={request ? calculateBill([request.round], payments) : bill}
               payments={payments}
               animateSuccess={animateOrderSuccess}
@@ -670,7 +680,6 @@ export default function App() {
                   ))}
                 </ul>
                 <div className="cart-amount-section">
-                  <h2 className="cart-section-title">{uiText(lang, 'amount_details_25bdd')}</h2>
                   <OrderAmounts quote={quote} total={quote.total / 100} remaining={quote.total / 100} lang={lang} showSummary={false} />
                 </div>
               </>
