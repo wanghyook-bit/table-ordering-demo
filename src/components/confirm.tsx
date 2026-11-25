@@ -8,6 +8,7 @@ import { ItemList, OrderAmounts, calculateBill, countLabel, itemCount, type Roun
 import { StoreCard } from './store'
 import { Button, InlineAlert, OptionChip, Page, Row, Section, TextButton, fieldClass, money, textareaClass } from './ui'
 import { FeeRows, feeText } from './pricing'
+import { PaymentCountdown } from './pay'
 
 export type Contact = { name: string; phone: string }
 
@@ -17,6 +18,8 @@ export function hasValidOrderContact(mode: Mode, contact: Contact) {
 
 export function ConfirmPage({
   lines,
+  expiresAt,
+  onCancelPayment,
   quote,
   repriced,
   mode,
@@ -36,6 +39,8 @@ export function ConfirmPage({
   onSubmit,
 }: {
   lines: CartLine[]
+  expiresAt?: number | null
+  onCancelPayment?: () => void
   quote: PriceQuote
   repriced: boolean
   mode: Mode
@@ -73,8 +78,8 @@ export function ConfirmPage({
         <>
           {repriced && <InlineAlert tone="pending" title={t(feeText.reprice)} className="mb-2" />}
           <div className="confirm-actions">
-            {table && <Button variant="secondary" onClick={onAddMore} className="flex-1">{lang === 'en' ? 'Add dishes' : '加菜'}</Button>}
-            <Button onClick={onSubmit} disabled={!valid} className="flex-1">{prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}</Button>
+            {expiresAt ? <Button variant="secondary" onClick={onCancelPayment} className="flex-1 cancel-payment">{lang === 'en' ? 'Cancel payment' : '取消支付'}</Button> : table && <Button variant="secondary" onClick={onAddMore} className="flex-1">{lang === 'en' ? 'Add dishes' : '加菜'}</Button>}
+            <Button onClick={onSubmit} disabled={!valid} className="flex-1">{expiresAt ? <>{lang === 'en' ? 'Pay' : '去支付'} <PaymentCountdown expiresAt={expiresAt} lang={lang} variant="inline" /></> : prepay && (!isAddOn || tablePrepay) ? t(strings.pay) : t(strings.submitOrder)}</Button>
           </div>
         </>
       }
@@ -110,6 +115,7 @@ export function ConfirmPage({
         </>
       ) : null}
 
+      {expiresAt && <div className="confirm-countdown"><PaymentCountdown expiresAt={expiresAt} lang={lang} variant="banner" /></div>}
       <Section
         title={table ? (lang === 'en' ? 'Items' : '餐品詳情') : t(strings.yourItems)}
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(itemCount(lines) + (table ? previousRounds.reduce((sum, round) => sum + itemCount(round.lines), 0) : 0), lang)}</span>}

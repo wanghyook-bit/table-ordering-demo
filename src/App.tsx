@@ -23,6 +23,7 @@ import { OrderDetail, calculateBill, type PaymentRecord, type Round } from './co
 import { ConfirmPage, hasValidOrderContact, type Contact } from './components/confirm'
 import { PaymentFlow, PaymentResultSheet, type TablePaymentResult } from './components/pay'
 import { MemberPage, type Member } from './components/member'
+import { MyOrders } from './components/my-orders'
 import { useBackSwipe, useBrowserBack } from './gestures'
 
 // One table session = one order number; rounds are first order + add-ons
@@ -43,9 +44,10 @@ const canOrder = !readonly && storeState !== 'closed' && storeState !== 'offline
 const manualSettlement = entry.get('settlement') === 'manual'
 const sessionKey = `ordering-a3:${window.location.search}`
 const paymentSessionKey = `${sessionKey}:payment`
+const sessionStore = table && prepay ? localStorage : sessionStorage
 function restoreSession() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(sessionKey) || 'null')
+    const saved = JSON.parse(sessionStore.getItem(sessionKey) || 'null')
     return saved ? { ...saved, payments: (saved.payments ?? []).map((payment: PaymentRecord) => ({ ...payment, paidAt: new Date(payment.paidAt) })) } : null
   } catch { return null }
 }
@@ -67,7 +69,7 @@ function demoCart(): CartLine[] {
 type OrderRequest = { status: 'waiting' | 'cancelled'; round: Round }
 
 type Sheet = null | 'language' | 'cart' | 'categories'
-type Page = null | 'search' | 'confirm' | 'orders' | 'pay' | 'member' | { dish: Dish }
+type Page = null | 'search' | 'confirm' | 'orders' | 'my-orders' | 'pay' | 'member' | { dish: Dish }
 
 export default function App() {
   // Keep the 390 × 844 preview intact when the desktop side panel is short.
@@ -108,11 +110,13 @@ export default function App() {
   const [orderNote, setOrderNote] = useState(savedSession?.orderNote ?? '')
   const [settled, setSettled] = useState(savedSession?.settled ?? false)
   const [pendingRound, setPendingRound] = useState<Round | null>(savedSession?.pendingRound ?? null)
+  const [prepayExpiresAt, setPrepayExpiresAt] = useState<number | null>(savedSession?.prepayExpiresAt ?? null)
   const [paymentAttempt, setPaymentAttempt] = useState(0)
   const [paymentResult, setPaymentResult] = useState<TablePaymentResult | null>(savedSession?.paymentResult ?? null)
   const [sheet, setSheet] = useState<Sheet>(null)
-  const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.pendingRound || savedSession?.tablePaymentOpen ? 'pay' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
+  const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.tablePaymentOpen ? 'pay' : savedSession?.pendingRound ? 'confirm' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
   const [toast, setToast] = useState<string | null>(null)
+  const [detailFromList, setDetailFromList] = useState(false)
   const [active, setActive] = useState('all')
   const [scrollY, setScrollY] = useState(0)
   const [categoryPinned, setCategoryPinned] = useState(false)
@@ -129,9 +133,15 @@ export default function App() {
 
   const tablePaymentOpen = !!table && page === 'pay'
   useEffect(() => {
-    sessionStorage.setItem(sessionKey, JSON.stringify({ entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen }))
-    if (paymentResult) sessionStorage.removeItem(paymentSessionKey)
-  }, [entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen])
+    sessionStore.setItem(sessionKey, JSON.stringify({ entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt }))
+    if (paymentResult) sessionStore.removeItem(paymentSessionKey)
+  }, [entered, mode, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt])
+
+  useEffect(() => {
+    if (!pendingRound || !prepayExpiresAt || (page === 'pay' && !paymentResult) || paymentResult?.kind === 'expired' || paymentResult?.kind === 'success' || paymentResult?.kind === 'cancelled') return
+    const tick = () => { if (Date.now() >= prepayExpiresAt) { setPaymentResult({ kind: 'expired' }); setPage('confirm') } }
+    tick(); const timer = setInterval(tick, 1000); return () => clearInterval(timer)
+  }, [pendingRound, prepayExpiresAt, page, paymentResult])
 
   const count = lines.reduce((s, l) => s + l.qty, 0)
   const pricingOptions: QuoteOptions = { mode, coupon: null, addOn: rounds.length > 0, packagingCents }
@@ -233,6 +243,7 @@ export default function App() {
   }
 
   const submitOrder = () => {
+    if (pendingRound && prepayExpiresAt && Date.now() < prepayExpiresAt) { setPaymentResult(null); setPaymentAttempt(v => v + 1); setPage('pay'); return }
     if (!lines.length || pendingRound || request?.status === 'waiting' || !canOrder) return
     if (!hasValidOrderContact(mode, contact)) return
     const latestPackaging = entry.get('reprice') === '1' && quote.packaging > 0 ? storeRules.packagingCents + 100 : packagingCents
@@ -252,6 +263,7 @@ export default function App() {
     }
     if (prepay && (!rounds.length || !!table) && online) {
       setPendingRound(round)
+      if (table) setPrepayExpiresAt(Date.now() + 15 * 60 * 1000)
       setPage('pay')
       return
     }
@@ -313,7 +325,7 @@ export default function App() {
                 <ChevronLeft className="size-6" aria-hidden="true" />
               </button>}
               <div className="absolute top-3 right-4 flex h-11 items-center gap-0.5 rounded-full border border-white/20 bg-black/25 p-0.5 backdrop-blur-md">
-                <IconButton variant="image" label={t(strings.orders)} badge={rounds.length} onClick={() => setPage('orders')}>
+                <IconButton variant="image" label={t(strings.orders)} badge={rounds.length ? 1 : 0} onClick={() => setPage('my-orders')}>
                   <ReceiptText className="size-4.5" />
                 </IconButton>
                 <span className="h-5 w-px shrink-0 bg-white/30" aria-hidden="true" />
@@ -434,6 +446,8 @@ export default function App() {
           {(page === 'confirm' || (tablePaymentOpen && pendingRound)) && (
             <ConfirmPage
               lines={lines}
+              expiresAt={pendingRound ? prepayExpiresAt : null}
+              onCancelPayment={() => { setPaymentResult({ kind: 'cancelled' }); setPage('confirm') }}
               quote={pendingRound?.quote ?? reviewQuote ?? quote}
               repriced={repriced}
               mode={mode}
@@ -454,12 +468,15 @@ export default function App() {
               prepay={prepay && online}
               setMode={(next) => { setMode(next); setReviewQuote(quoteCart(lines, { ...pricingOptions, mode: next })); setRepriced(false) }}
               onBack={() => {
+                if (pendingRound && prepayExpiresAt) return
                 setPage(null)
                 setSheet('cart')
               }}
               onSubmit={submitOrder}
             />
           )}
+
+          {page === 'my-orders' && <MyOrders rounds={request ? [request.round] : rounds} status={request?.status ?? (rounds.length ? 'accepted' : null)} total={request ? calculateBill([request.round], payments).total : bill.total} paid={bill.paid} settled={settled} manualSettlement={manualSettlement} table={table} canAddDishes={canOrder} lang={lang} onClose={() => setPage(null)} onDetails={() => { setDetailFromList(true); setPage('orders') }} onAddMore={() => setPage(null)} />}
 
           {(page === 'orders' || (tablePaymentOpen && !pendingRound)) && (
             <OrderDetail
@@ -492,12 +509,14 @@ export default function App() {
               onClose={() => {
                 setLastPaidAmount(null)
                 setAnimateOrderSuccess(false)
-                setPage(null)
+                setPage(detailFromList ? 'my-orders' : null)
+                setDetailFromList(false)
               }}
               onAddMore={() => {
                 if (!table || !canOrder) return
                 setLastPaidAmount(null)
                 setAnimateOrderSuccess(false)
+                setDetailFromList(false)
                 setPage(null)
               }}
               onPay={() => {
@@ -518,30 +537,34 @@ export default function App() {
             resultSheet={paymentResult ? (
               <PaymentResultSheet
                 result={paymentResult}
+                expiresAt={pendingRound ? prepayExpiresAt : null}
+                cancelledOrder={paymentResult.kind === 'cancelled' && !!pendingRound && !!table}
                 lang={lang}
                 orderNo={ORDER_NO}
                 onClose={() => {
                   setPaymentResult(null)
-                  if (pendingRound) {
-                    setReviewQuote(pendingRound.quote)
-                    setRepriced(false)
-                    setPendingRound(null)
-                  }
+                  if (paymentResult.kind === 'expired' || (paymentResult.kind === 'cancelled' && pendingRound && table)) { setPendingRound(null); setPrepayExpiresAt(null); setLines([]); setReviewQuote(null); setPage(null) }
                 }}
-                onRetry={paymentResult.kind !== 'success' && (pendingRound || bill.remaining > 0) ? () => {
+                onRetry={paymentResult.kind !== 'success' && paymentResult.kind !== 'expired' && !(paymentResult.kind === 'cancelled' && pendingRound && table) && (pendingRound || bill.remaining > 0) && (!prepayExpiresAt || Date.now() < prepayExpiresAt) ? () => {
                   setPaymentResult(null)
                   setPaymentAttempt((attempt) => attempt + 1)
                   setPage('pay')
                 } : undefined}
               />
             ) : undefined}
+            expiresAt={pendingRound ? prepayExpiresAt : null}
+            onExpired={() => { setPaymentResult({ kind: 'expired' }); setPage('confirm') }}
             balance={pendingRound ? pendingRound.quote.total / 100 : bill.remaining}
             gateway={gateway || !!table}
             direct={!!table}
             directSessionKey={table ? paymentSessionKey : undefined}
+            persistentAttempt={!!table && prepay}
             onFailure={table ? (kind) => {
-              setPaymentResult({ kind })
-              setPage(pendingRound ? 'confirm' : 'orders')
+              if (pendingRound) {
+                sessionStore.removeItem(paymentSessionKey)
+                setPaymentResult(prepayExpiresAt && Date.now() >= prepayExpiresAt ? { kind: 'expired' } : null)
+                setPage('confirm')
+              } else { setPaymentResult({ kind }); setPage('orders') }
             } : undefined}
             tipsEnabled={storeRules.tips}
             orderNo={ORDER_NO}
@@ -555,12 +578,14 @@ export default function App() {
               if (pendingRound) {
                 acceptOrder(pendingRound)
                 setPendingRound(null)
+                setPrepayExpiresAt(null)
                 setLines([])
                 setCoupon(null)
                 setCouponNotice(null)
               }
               if (table) {
-                setPaymentResult({ kind: 'success', amount: payment.amount })
+                if (pendingRound) { sessionStore.removeItem(paymentSessionKey); setPaymentResult(null) }
+                else setPaymentResult({ kind: 'success', amount: payment.amount })
                 setPage('orders')
               } else {
                 setSettled(true)
