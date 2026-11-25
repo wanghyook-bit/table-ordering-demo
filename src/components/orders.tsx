@@ -334,7 +334,7 @@ export function OrderDetail({
   )
 }
 
-export function OrderAmounts({ quote, tip = 0, total, paid, remaining, lang, onPaymentHistory }: { quote: Pick<PriceQuote, 'subtotal' | 'service' | 'packaging' | 'savings' | 'total'>; tip?: number; total: number; paid?: number; remaining: number; lang: Lang; onPaymentHistory?: () => void }) {
+export function OrderAmounts({ quote, tip = 0, total, paid, remaining, lang, onPaymentHistory, showSummary = true }: { quote: Pick<PriceQuote, 'subtotal' | 'service' | 'packaging' | 'savings' | 'total'>; tip?: number; total: number; paid?: number; remaining: number; lang: Lang; onPaymentHistory?: () => void; showSummary?: boolean }) {
   return <dl className="order-amounts">
     <div className="order-amount-breakdown">
       <Row k={lang === 'en' ? 'Items total' : lang === 'zh' ? '商品总额' : '商品總額'} v={money(quote.subtotal / 100)} />
@@ -343,11 +343,11 @@ export function OrderAmounts({ quote, tip = 0, total, paid, remaining, lang, onP
       {tip > 0 && <Row k={strings.tip[lang]} v={money(tip / 100)} />}
       {quote.savings.map((saving) => <Row key={saving.key} k={saving.name[lang]} v={saving.included ? `${feeText.save[lang]} ${money(saving.cents / 100)} · ${feeText.included[lang]}` : `−${money(saving.cents / 100)}`} />)}
     </div>
-    <div className="order-amount-summary">
+    {showSummary && <div className="order-amount-summary">
       <Row k={strings.billTotal[lang]} v={money(total)} strong />
       {paid !== undefined && <Row k={onPaymentHistory ? <button type="button" onClick={onPaymentHistory} className="inline-flex items-center gap-1">{strings.confirmedPaid[lang]} <ChevronRight size={16} /></button> : strings.confirmedPaid[lang]} v={money(paid)} strong />}
       <Row k={strings.balanceDue[lang]} v={<span className="text-[#ff7a30]">{money(remaining)}</span>} strong />
-    </div>
+    </div>}
   </dl>
 }
 

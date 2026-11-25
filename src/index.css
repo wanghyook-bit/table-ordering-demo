@@ -268,3 +268,13 @@
 :is(.confirm-design,.order-design,.my-orders-page) footer button { min-width:0; }
 .my-orders-heading h2 { font-size:17px; line-height:23px; }
 .my-orders-actions button { min-width:0; flex:1; }
+
+/* Cart uses the same dish dimensions and amount typography as confirmation. */
+.cart-section-title { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin:8px 0; color:#1d2128; font-size:17px; line-height:23px; font-weight:600; }
+.cart-item-count { color:#6b717b; font-size:13px; font-weight:400; }
+.cart-item { display:flex; gap:12px; padding:8px 0; align-items:flex-start; }
+.cart-item-info { min-width:0; flex:1; }
+.cart-item-name { color:#1d2128; font-size:17px; line-height:23px; font-weight:600; overflow-wrap:anywhere; }
+.cart-item-bottom { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:4px; }
+.cart-item-price { color:#1d2128; font-size:17px; font-weight:600; }
+.cart-amount-section { margin-top:20px; padding-top:8px; border-top:1px solid #efece9; }

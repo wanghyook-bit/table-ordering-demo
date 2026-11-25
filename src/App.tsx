@@ -20,7 +20,7 @@ import { FeeRows, feeText } from './components/pricing'
 import { couponIssue, quoteCart, storeRules, toCents, type CouponId, type PriceQuote, type QuoteOptions } from './pricing'
 import { CartBar, CartRow, DishCard, DishPage, SearchOverlay } from './components/menu'
 import { Welcome, type Mode } from './components/Welcome'
-import { OrderDetail, calculateBill, type PaymentRecord, type Round } from './components/orders'
+import { OrderDetail, OrderAmounts, calculateBill, type PaymentRecord, type Round } from './components/orders'
 import { ConfirmPage, hasValidOrderContact, type Contact } from './components/confirm'
 import { PaymentFlow, PaymentResultSheet, type TablePaymentResult } from './components/pay'
 import { MemberPage, type Member } from './components/member'
@@ -663,15 +663,17 @@ export default function App() {
               <Empty title={t(strings.emptyCart)} />
             ) : (
               <>
-                <ul className="space-y-3">
+                <div className="cart-section-title"><span>{uiText(lang, 'items_2f38f')}</span><span className="cart-item-count">{lang === 'en' ? `${count} ${count === 1 ? 'item' : 'items'}` : `共 ${count} 件`}</span></div>
+                <ul className="confirm-items">
                   {lines.map((l) => (
                     <CartRow key={l.key} line={l} lang={lang} amount={quote.rows[l.key]}>
                       <Stepper qty={l.qty} onMinus={() => changeLine(l.key, -1)} onPlus={() => changeLine(l.key, 1)} />
                     </CartRow>
                   ))}
                 </ul>
-                <div className="mt-4 border-t border-line pt-4">
-                  <FeeRows quote={quote} lang={lang} />
+                <div className="cart-amount-section">
+                  <h2 className="cart-section-title">{uiText(lang, 'amount_details_25bdd')}</h2>
+                  <OrderAmounts quote={quote} total={quote.total / 100} remaining={quote.total / 100} lang={lang} showSummary={false} />
                 </div>
               </>
             )}

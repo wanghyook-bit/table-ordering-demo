@@ -298,17 +298,14 @@ export function SearchOverlay({
 /** Flat list row for a cart line (thumb · name · options · price · trailing control). */
 export function CartRow({ line, lang, amount, children }: { line: CartLine; lang: Lang; amount: number; children?: ReactNode }) {
   const label = optsLabel(line.opts, line.note, lang)
-  return (
-    <li className="flex items-center gap-3 py-3">
-      <Thumb src={line.dish.image} />
-      <div className="min-w-0 flex-1">
-        <p className="text-body font-medium">{line.dish.name[lang]}</p>
-        {label && <p className="mt-0.5 text-callout text-ink-2">{label}</p>}
-        <Price value={amount / 100} className="mt-1 block text-body font-semibold" />
-      </div>
-      {children}
-    </li>
-  )
+  return <li className="cart-item">
+    <DishImage src={line.dish.image} alt={line.dish.name[lang]} className="confirm-item-image" />
+    <div className="cart-item-info">
+      <p className="cart-item-name">{line.dish.name[lang]}</p>
+      {label && <p className="confirm-options">{label}</p>}
+      <div className="cart-item-bottom"><Price value={amount / 100} className="cart-item-price" />{children}</div>
+    </div>
+  </li>
 }
 
 /** Floating cart bar: count + total + solid brand checkout button. */
