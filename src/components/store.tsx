@@ -47,7 +47,7 @@ export function StoreCard({ lang, showDistance }: { lang: Lang; showDistance: bo
         </div>
       </div>
       <IconButton label={t(strings.callStore)} onClick={() => (window.location.href = `tel:${STORE.phone}`)}>
-        <Phone className="size-4.5 text-brand" />
+        <Phone className="size-4.5 text-action" />
       </IconButton>
     </div>
   )

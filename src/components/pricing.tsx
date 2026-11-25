@@ -5,7 +5,7 @@ import { Check, ChevronRight } from 'lucide-react'
 import { strings, type Lang } from '../data'
 import type { CartLine } from '../cart'
 import { couponIssue, coupons, l10n, quoteCart, type CouponId, type CouponIssue, type PriceQuote, type QuoteOptions } from '../pricing'
-import { BottomSheet, Button, Row, choiceBase, choiceState, money } from './ui'
+import { BottomSheet, Button, Row, choiceBase, choiceState, disabledControlClass, money } from './ui'
 
 export const feeText = {
   offers: l10n('Offers', '優惠', '优惠'),
@@ -59,7 +59,7 @@ export function FeeRows({ quote, lang, tip = 0, totalLabel, total = quote.total 
         const label = (
           <span className="flex flex-wrap items-center gap-1.5">
             <span>{strings.discount[lang]}</span>
-            <span className="rounded-sm bg-tile px-1.5 py-0.5 text-caption font-medium text-ink-2">
+            <span className="rounded-full bg-tile px-1.5 py-0.5 text-caption font-medium text-ink-2">
               {coupon ? (uiText(lang, 'coupon_c80c3')) : saving.name[lang]}
             </span>
             {coupon && <span className="text-caption text-ink-2">{lang === 'en' ? `$${coupon.minimum / 100} minimum` : lang === 'zh' ? `满 $${coupon.minimum / 100}` : `滿 $${coupon.minimum / 100}`}</span>}
@@ -93,12 +93,12 @@ export function Offers({ lines, options, quote, lang, onCoupon }: {
   return (
     <>
       <div>
-        <button type="button" onClick={() => { setDraft(quote.coupon); setPanel('coupons') }} disabled={options.addOn} className="flex min-h-11 w-full items-center justify-between gap-2 text-left text-body disabled:text-ink-2">
+        <button type="button" onClick={() => { setDraft(quote.coupon); setPanel('coupons') }} disabled={options.addOn} className={`group flex min-h-11 w-full items-center justify-between gap-2 rounded-md text-left text-body disabled:px-2 ${disabledControlClass}`}>
           <span className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span>{feeText.coupons[lang]}</span>
-            {selected && <span className="rounded-sm bg-brand-soft px-1.5 py-0.5 text-caption text-brand-strong">{lang === 'en' ? `$${selected.minimum / 100} minimum` : lang === 'zh' ? `满 $${selected.minimum / 100} 减 $${selected.cents / 100}` : `滿 $${selected.minimum / 100} 減 $${selected.cents / 100}`}</span>}
+            {selected && <span className="rounded-full bg-brand-soft px-1.5 py-0.5 text-caption text-action group-disabled:bg-white/50 group-disabled:text-disabled-ink">{lang === 'en' ? `$${selected.minimum / 100} minimum` : lang === 'zh' ? `满 $${selected.minimum / 100} 减 $${selected.cents / 100}` : `滿 $${selected.minimum / 100} 減 $${selected.cents / 100}`}</span>}
           </span>
-          <span className="flex shrink-0 items-center gap-1 text-callout text-ink-2">
+          <span className="flex shrink-0 items-center gap-1 text-callout text-ink-2 group-disabled:text-disabled-ink">
             {options.addOn ? feeText.addOnOnly[lang] : selected ? `−${money(selected.cents / 100)}` : available.length ? (lang === 'en' ? `${available.length} available` : lang === 'zh' ? `${available.length} 张可用` : `${available.length} 張可用`) : (lang === 'en' ? 'No available coupons' : lang === 'zh' ? '暂无可用优惠券' : '暫無可用優惠券')}
             {!options.addOn && <ChevronRight className="size-4" aria-hidden="true" />}
           </span>
@@ -110,7 +110,7 @@ export function Offers({ lines, options, quote, lang, onCoupon }: {
         {available.length === 0 && <p role="status" className="mb-3 text-callout text-ink-2">{lang === 'en' ? 'No available coupons for this order' : lang === 'zh' ? '本单暂无可用优惠券' : '本單暫無可用優惠券'}</p>}
         <button type="button" aria-pressed={draft === null} onClick={() => setDraft(null)} className={`flex min-h-12 w-full items-center justify-between rounded-md px-4 text-left text-body ${choiceBase} ${choiceState(draft === null)}`}>
           {feeText.noCoupon[lang]}
-          {draft === null && <Check className="size-5 shrink-0 text-brand" aria-hidden="true" />}
+          {draft === null && <Check className="size-5 shrink-0 text-action" aria-hidden="true" />}
         </button>
         {available.length > 0 && <div className="mt-4">
           <h3 className="mb-2 text-body font-semibold text-ink-2">{feeText.availableCoupons[lang]} · {available.length}</h3>
@@ -121,7 +121,7 @@ export function Offers({ lines, options, quote, lang, onCoupon }: {
                   <span className="block text-body font-semibold text-ink">{coupon.name[lang]}</span>
                   {coupon.id === 'pickup' && replaces && <span className="mt-1 block text-caption text-ink-2">{feeText.replace[lang]}</span>}
                 </span>
-                <span className={`flex shrink-0 items-center gap-1 text-caption font-semibold ${draft === coupon.id ? 'text-brand' : 'text-ink-2'}`}>
+                <span className={`flex shrink-0 items-center gap-1 text-caption font-semibold ${draft === coupon.id ? 'text-action' : 'text-ink-2'}`}>
                   {draft === coupon.id ? feeText.selected[lang] : feeText.available[lang]}
                   {draft === coupon.id && <Check className="size-4" aria-hidden="true" />}
                 </span>
@@ -144,7 +144,7 @@ export function Offers({ lines, options, quote, lang, onCoupon }: {
             })}
           </div>
         </div>}
-        <div className="mt-4 border-t border-line pt-3">
+        <div className="mt-section-gap">
           <h3 className="mb-2 text-body font-semibold">{feeText.preview[lang]}</h3>
           <FeeRows quote={preview} lang={lang} totalLabel={feeText.estimate[lang]} />
         </div>

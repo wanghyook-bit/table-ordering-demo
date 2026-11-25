@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700&display=swap');
 @import 'tailwindcss';
 
 /* 构建产物目录不参与扫描，否则二次构建会把产物里的类名再喂回 CSS，导致 hash 漂移 */
@@ -7,7 +6,7 @@
 @theme {
   /* Typography */
   --font-sans: 'PingFang HK', 'PingFang SC', 'PingFang TC', 'Hiragino Sans GB', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Noto Serif TC', 'Songti TC', serif;
+  --font-serif: 'Songti TC', 'Noto Serif CJK TC', serif;
   --text-display: 32px;
   --text-display--line-height: 1.2;
   --text-display-lg: 44px;
@@ -26,13 +25,10 @@
   --text-caption: 12px;
   --text-caption--line-height: 1.4;
 
-  /* Keep the brand accent and the readable action color on the same palette. */
-  --color-brand: #ff7a30;
-  --color-brand-strong: #b84a13;
-  --color-action: var(--color-brand-strong);
+  /* Primary controls and interactive feedback share the same brand color. */
+  --color-action: #b84a13;
   --color-action-pressed: #963c0e;
   --color-brand-soft: #fff1e7;
-  --color-brand-wash: #fdefe0;
   --color-banner-edge: #101b16;
   --color-cream: #fff8ef;
   --color-cocoa: #553b2d;
@@ -41,7 +37,8 @@
   --color-muted: #6b717b;
   --color-line: #e9e5e1;
   --color-tile: #f6f4f2;
-  --color-disabled: #e4e0dc;
+  --color-disabled: #bcb8b4;
+  --color-disabled-ink: #393d45;
   --color-canvas: #f1ece8;
   /* Semantic states — brand orange is reserved for actions and brand emphasis */
   --color-success: #17754a;
@@ -53,7 +50,7 @@
   --color-warning: #9a5b00;
   --color-warning-soft: #fdf3e3;
   --color-warning-line: #ecd7b4;
-  --color-danger: #d93838;
+  --color-danger: #b72c2c;
   --color-danger-soft: #fdecec;
 
   /* Radius scale — cards 16, sheets 24, controls full */
@@ -69,7 +66,9 @@
   --spacing-card: 16px;
   --spacing-stack: 12px;
   --spacing-section: 24px;
+  --spacing-section-gap: 20px;
   --spacing-control: 16px;
+  --spacing-divider: 8px;
   /* Tall primary button used in bottom action bars */
   --spacing-button-lg: 52px;
 
@@ -79,12 +78,22 @@
   --shadow-divider: 0 3px 10px rgba(29, 33, 40, 0.06);
 }
 
+@utility section-divider {
+  margin-top: var(--spacing-divider);
+  padding-top: var(--spacing-divider);
+  border-top: 1px solid var(--color-line);
+}
+
 @layer base {
   html {
     overscroll-behavior-x: none;
   }
   body {
     @apply bg-canvas text-ink antialiased;
+  }
+  :where(button, a[href], input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-action);
+    outline-offset: 2px;
   }
 }
 
@@ -191,7 +200,7 @@
 
 /* Confirmation page: visual treatment scoped to this screen. */
 .confirm-design { background: #fff; }
-.confirm-design > div > section { padding: var(--spacing-gutter) var(--spacing-gutter) 0; }
+.confirm-design > div > section { padding: var(--spacing-section-gap) var(--spacing-gutter) 0; }
 .confirm-design > div > section > div:first-child:not(:last-child) { padding-inline: 0; }
 .confirm-design section > div:first-child:not(:last-child) { margin: 0 0 8px; padding: 0; }
 .confirm-design section h2 { color: #1d2128; font-size: 17px; line-height: 23px; }
@@ -207,7 +216,7 @@
 .confirm-item-image { width: 60px; height: 60px; flex-shrink: 0; border-radius: 12px; }
 .confirm-item-info { display: flex; min-width: 0; flex: 1; flex-direction: column; justify-content: space-between; min-height: 60px; }
 .confirm-item-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 17px; line-height: 23px; }
-.confirm-status { border-radius: 12px; padding: 2px 6px; font-size: 12px; line-height: 17px; font-weight: 400; }
+.confirm-status { padding: 2px 6px; font-size: 12px; line-height: 17px; font-weight: 400; }
 .confirm-status.ordered { background: var(--color-success-soft); color: var(--color-success); }
 .confirm-status.pending { background: var(--color-pending-soft); color: var(--color-pending); }
 .confirm-options { color: var(--color-ink-2); font-size: var(--text-callout); }
@@ -219,7 +228,7 @@
 
 /* Shared order and payment surfaces follow the confirmation-page visual system. */
 :is(.order-design, .payment-design) { background: #fff; }
-:is(.order-design, .payment-design) > div > section { padding: var(--spacing-gutter) var(--spacing-gutter) 0; }
+:is(.order-design, .payment-design) > div > section { padding: var(--spacing-section-gap) var(--spacing-gutter) 0; }
 :is(.order-design, .payment-design) section > div:first-child:not(:last-child) { margin: 0 0 8px; padding: 0; }
 :is(.order-design, .payment-design) section > div:last-child { padding: 0; border-radius: 0; }
 :is(.order-design, .payment-design) section:last-child { padding-bottom: 24px; }
@@ -231,15 +240,13 @@
 .confirm-note-toggle svg { flex-shrink:0; }
 
 /* Order-detail amounts and metadata, aligned with the approved screen. */
-.amount-rows, .order-information { display:flex; flex-direction:column; }
-.amount-rows { row-gap:8px; }
-.order-information { row-gap:4px; }
+.amount-rows { display:flex; flex-direction:column; row-gap:8px; }
 .order-amount-breakdown > div, .order-information > div { font-size:14px; line-height:21.75px; }
 .order-amount-breakdown dd, .order-information dd { font-size:15px; }
-.order-amount-summary { margin-top:8px; padding-top:8px; border-top:1px solid var(--color-line); }
 .order-amount-summary > div { font-size:15px; line-height:23px; }
 .order-amount-summary dd { font-size:17px; }
-.order-design section:has(.order-amounts) { padding-bottom:8px; border-bottom:1px solid var(--color-line); }
+.order-information dt { flex-shrink:0; }
+.order-information dd { min-width:0; text-align:right; overflow-wrap:anywhere; }
 .order-design section:has(.order-success) { padding-top:24px; padding-bottom:12px; }
 .confirm-design .order-amount-summary > div { font-size:15px; line-height:23px; }
 .confirm-design .order-amount-summary dd { font-size:17px; }
@@ -263,10 +270,44 @@
 .my-orders-actions { display:flex; justify-content:flex-end; gap:var(--spacing-stack); margin-top:var(--spacing-card); }
 .my-orders-actions button { min-width:0; flex:0 1 112px; padding-inline:12px; }
 
-.confirm-countdown { padding:12px 20px 0; }
-.countdown-banner { display:flex; align-items:center; justify-content:center; gap:6px; border:1px solid #ffd7bf; border-radius:16px; background:#fff7f2; padding:12px; color:#4a4f58; font-size:14px; font-weight:600; }
-.countdown-banner strong { color:var(--color-action); font-size:20px; line-height:24px; font-variant-numeric:tabular-nums; }
 .confirm-actions .cancel-payment:not(:disabled) { border:1px solid var(--color-action); color:var(--color-action); background:white; }
+.confirm-actions .cancel-payment:not(:disabled):active { background:var(--color-brand-soft); }
+
+.payment-hourglass-top, .payment-hourglass-bottom {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transform: scaleY(.55);
+}
+.payment-hourglass-stream { opacity: 0; }
+
+@keyframes payment-hourglass-drain {
+  0% { transform: scaleY(1); }
+  70%, 100% { transform: scaleY(0); }
+}
+@keyframes payment-hourglass-fill {
+  0% { transform: scaleY(0); }
+  70%, 100% { transform: scaleY(1); }
+}
+@keyframes payment-hourglass-stream {
+  0%, 67%, 100% { opacity: 0; }
+  9%, 59% { opacity: 1; }
+}
+@keyframes payment-hourglass-turn {
+  0%, 76% { transform: rotate(0deg); }
+  94%, 100% { transform: rotate(180deg); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .payment-hourglass-body {
+    --hourglass-cycle: 3.2s;
+    transform-box: view-box;
+    transform-origin: center;
+    animation: payment-hourglass-turn var(--hourglass-cycle) ease-in-out infinite;
+  }
+  .payment-hourglass-top { animation: payment-hourglass-drain var(--hourglass-cycle) linear infinite; }
+  .payment-hourglass-bottom { animation: payment-hourglass-fill var(--hourglass-cycle) linear infinite; }
+  .payment-hourglass-stream { animation: payment-hourglass-stream var(--hourglass-cycle) linear infinite; }
+}
 
 /* Shared action and compact-text behavior across order screens. */
 :is(.confirm-design,.order-design,.my-orders-page) button { overflow-wrap:anywhere; }
@@ -280,7 +321,6 @@
 .cart-item-name { color:#1d2128; font-size:17px; line-height:23px; font-weight:600; overflow-wrap:anywhere; }
 .cart-item-bottom { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:4px; }
 .cart-item-price { color:#1d2128; font-size:17px; font-weight:600; }
-.cart-amount-section { margin-top:var(--spacing-gutter); padding-top:8px; border-top:1px solid var(--color-line); }
 
 /* Compact pill options on the dish detail screen. */
 .dish-detail-sections > section { margin-top: 28px; }
@@ -301,16 +341,16 @@
 .member-entry { box-shadow:none; }
 
 /* Order states share the success page's centered visual hierarchy. */
-.order-status-illustration { text-align:center; }
-.order-success[data-tone="success"] > strong { color:var(--color-success); }
-.order-success[data-tone="pending"] > strong { color:var(--color-pending); }
+.order-status-illustration { text-align:center; --order-status-color:var(--color-pending); --order-status-soft:var(--color-pending-soft); }
+.order-status-illustration[data-tone="brand"] { --order-status-color:var(--color-action); --order-status-soft:var(--color-brand-soft); }
+.order-success:is([data-tone="pending"], [data-tone="brand"]) > strong { color:var(--order-status-color); }
 .order-success[data-tone="neutral"] > strong { color:var(--color-ink-2); }
 .order-status-art { width:165px; height:88px; display:flex; align-items:center; justify-content:center; position:relative; }
-.order-status-orbit { position:absolute; width:72px; height:72px; border-radius:50%; background:#fff0d4; box-shadow:0 0 0 8px #fff8eb; }
-.order-status-circle { position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center; border-radius:50%; color:white; background:linear-gradient(145deg,#ffc54d,#f18a12); box-shadow:0 3px 9px #e59a4a80; }
+.order-status-orbit { position:absolute; width:72px; height:72px; border-radius:50%; background:var(--order-status-soft); box-shadow:0 0 0 8px color-mix(in srgb, var(--order-status-soft) 60%, white); }
+.order-status-circle { position:relative; width:60px; height:60px; display:flex; align-items:center; justify-content:center; border-radius:50%; color:white; background:linear-gradient(145deg,color-mix(in srgb, var(--order-status-color) 85%, var(--order-status-soft)),var(--order-status-color)); box-shadow:0 3px 9px color-mix(in srgb, var(--order-status-color) 30%, transparent); }
 .order-status-circle svg { width:32px; height:32px; }
 .order-status-illustration[data-tone="neutral"] .order-status-orbit { background:var(--color-tile); box-shadow:none; }
-.order-status-illustration[data-tone="neutral"] .order-status-circle { background:var(--color-disabled); color:var(--color-ink-2); box-shadow:none; }
+.order-status-illustration[data-tone="neutral"] .order-status-circle { background:#ddd9d5; color:var(--color-ink-2); box-shadow:none; }
 .order-status-description { font-size:14px; line-height:21px; font-weight:400; color:var(--color-ink-2); }
 
 .home-banner-copy { position:absolute; inset:0; pointer-events:none; color:#fff5e4; container-type:inline-size; text-shadow:0 1px 3px rgb(0 0 0 / 65%); background:linear-gradient(180deg,rgb(13 27 24 / 62%),transparent 53%,transparent 77%,rgb(13 27 24 / 48%)); }

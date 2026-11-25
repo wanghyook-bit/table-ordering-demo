@@ -23,9 +23,11 @@ const accessibilityText = { back: { en: 'Back', hk: '返回', zh: '返回' }, cl
 const num = (n: number) => n.toFixed(2).replace(/\.?0+$/, '')
 export const money = (n: number) => `$${num(n)}`
 
-export const fieldClass = 'min-h-12 rounded-md border border-line bg-white px-4 text-body outline-none transition-[border-color,box-shadow] focus:border-brand focus:ring-2 focus:ring-brand/10 aria-invalid:border-danger aria-invalid:ring-danger/10'
+export const fieldFocusClass = 'outline-none transition-[border-color,box-shadow] focus-within:border-action focus-within:ring-2 focus-within:ring-action/15 aria-invalid:border-danger aria-invalid:focus-within:border-danger aria-invalid:focus-within:ring-danger/15'
 
-export const textareaClass = 'w-full resize-none rounded-md border border-line bg-white p-4 text-body outline-none placeholder:text-muted transition-[border-color,box-shadow] focus:border-brand focus:ring-2 focus:ring-brand/10 aria-invalid:border-danger aria-invalid:ring-danger/10'
+export const fieldClass = `min-h-12 rounded-md border border-line bg-white px-4 text-body ${fieldFocusClass}`
+
+export const textareaClass = `w-full resize-none rounded-md border border-line bg-white p-4 text-body placeholder:text-muted ${fieldFocusClass}`
 
 type NoticeTone = 'info' | 'pending' | 'danger' | 'success'
 
@@ -46,17 +48,13 @@ export function InlineAlert({ tone = 'info', title, children, className = '' }: 
   )
 }
 
-export function StatusPanel({ tone = 'info', icon, title, description, variant = 'card' }: { tone?: NoticeTone; icon: ReactNode; title: ReactNode; description?: ReactNode; variant?: 'card' | 'row' }) {
-  const iconTone =
-    tone === 'danger' ? 'bg-danger-soft text-danger'
-      : tone === 'success' ? 'bg-success-soft text-success'
-        : tone === 'pending' ? 'bg-pending-soft text-pending'
-          : 'bg-info-soft text-info'
+export function StatusPanel({ tone = 'info', icon, title, description, variant = 'card' }: { tone?: NoticeTone | 'brand'; icon: ReactNode; title: ReactNode; description?: ReactNode; variant?: 'card' | 'row' }) {
+  const iconTone = tone === 'brand' ? 'bg-brand-soft text-action' : noticeTone[tone]
   return (
     <div role="status" className={`flex gap-3 ${variant === 'card' ? 'items-start rounded-md bg-tile px-4 py-4' : 'items-center'}`}>
       <span className={`grid size-10 shrink-0 place-items-center rounded-full ${iconTone}`}>{icon}</span>
       <div className="min-w-0">
-        <p className="text-headline font-semibold">{title}</p>
+        <p className={`text-headline font-semibold ${tone === 'brand' ? 'text-action' : ''}`}>{title}</p>
         {description && <p className="mt-1 text-callout text-ink-2">{description}</p>}
       </div>
     </div>
@@ -87,9 +85,11 @@ type BtnVariant = 'primary' | 'secondary' | 'warm' | 'dark'
 const btnVariant: Record<BtnVariant, string> = {
   primary: 'bg-action text-white active:bg-action-pressed',
   secondary: 'bg-tile text-ink active:bg-line',
-  warm: 'glass-entry border border-white/65 text-white active:ring-1 active:ring-white/80',
+  warm: 'glass-entry border border-white/65 text-white active:ring-1 active:ring-white/80 focus-visible:outline-brand-soft',
   dark: 'bg-ink text-white active:bg-black',
 }
+
+export const disabledControlClass = 'disabled:cursor-not-allowed disabled:border-transparent disabled:bg-disabled disabled:text-disabled-ink disabled:shadow-none disabled:transition-none disabled:active:bg-disabled disabled:active:scale-100'
 
 export function Button({
   variant = 'primary',
@@ -101,7 +101,7 @@ export function Button({
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center gap-2 rounded-full text-center font-medium leading-tight transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action disabled:pointer-events-none disabled:bg-disabled disabled:text-ink-2 disabled:active:scale-100 ${
+      className={`inline-flex items-center justify-center gap-2 rounded-full text-center font-medium leading-tight transition active:scale-[0.98] ${disabledControlClass} ${
         size === 'lg' ? 'min-h-button-lg px-5 text-body' : 'min-h-11 px-4 text-callout'
       } ${btnVariant[variant]} ${className}`}
     >
@@ -112,10 +112,9 @@ export function Button({
 
 /* ---------- Text actions ---------- */
 
-type TextTone = 'brand' | 'brandStrong' | 'neutral' | 'muted'
+type TextTone = 'brand' | 'neutral' | 'muted'
 const textTone: Record<TextTone, string> = {
   brand: 'text-action',
-  brandStrong: 'text-brand-strong',
   neutral: 'text-ink',
   muted: 'text-ink-2',
 }
@@ -138,7 +137,7 @@ export function TextButton({
     <button
       type="button"
       {...rest}
-      className={`inline-flex items-center ${compact ? '' : 'min-h-11'} ${size === 'body' ? 'text-body' : 'text-callout'} ${weight === 'medium' ? 'font-medium' : ''} ${textTone[tone]} ${underline ? 'underline' : ''} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-50 ${className}`}
+      className={`inline-flex items-center ${compact ? '' : 'min-h-11'} ${size === 'body' ? 'text-body' : 'text-callout'} ${weight === 'medium' ? 'font-medium' : ''} ${textTone[tone]} ${underline ? 'underline' : ''} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action disabled:cursor-not-allowed disabled:text-disabled-ink disabled:no-underline ${className}`}
     >
       {children}
     </button>
@@ -148,10 +147,10 @@ export function TextButton({
 type IconVariant = 'light' | 'dark' | 'tile' | 'plain' | 'image'
 const iconVariant: Record<IconVariant, string> = {
   light: 'bg-white/85 text-ink backdrop-blur-md',
-  dark: 'bg-black/30 text-white backdrop-blur-md',
+  dark: 'bg-black/30 text-white backdrop-blur-md focus-visible:outline-brand-soft',
   tile: 'bg-tile text-ink',
   plain: 'text-ink',
-  image: 'text-white drop-shadow-md',
+  image: 'text-white drop-shadow-md focus-visible:outline-brand-soft',
 }
 
 export function IconButton({
@@ -167,7 +166,7 @@ export function IconButton({
       {...rest}
       aria-label={label}
       // `relative` only when not positioned by the caller — otherwise it overrides `absolute`
-      className={`${/\b(absolute|fixed)\b/.test(className) ? '' : 'relative'} inline-flex size-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-40 disabled:active:scale-100 ${iconVariant[variant]} ${className}`}
+      className={`${/\b(absolute|fixed)\b/.test(className) ? '' : 'relative'} inline-flex size-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 ${disabledControlClass} ${iconVariant[variant]} ${className}`}
     >
       {children}
       {!!badge && <Badge className="absolute -top-0.5 -right-0.5">{badge}</Badge>}
@@ -178,7 +177,7 @@ export function IconButton({
 export function BackButton({ onClick, onImage = false, disabled = false, className = '' }: { onClick: () => void; onImage?: boolean; disabled?: boolean; className?: string }) {
   const lang = useContext(LanguageContext)
   return (
-    <button type="button" aria-label={accessibilityText.back[lang]} onClick={onClick} disabled={disabled} className={`grid size-11 shrink-0 place-items-center rounded-full active:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:opacity-40 ${onImage ? 'text-white' : 'text-ink'} ${className}`}>
+    <button type="button" aria-label={accessibilityText.back[lang]} onClick={onClick} disabled={disabled} className={`grid size-11 shrink-0 place-items-center rounded-full active:bg-black/10 ${disabledControlClass} ${onImage ? 'text-white focus-visible:outline-brand-soft' : 'text-ink'} ${className}`}>
       <ChevronLeft className={`size-6 ${onImage ? 'drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]' : ''}`} />
     </button>
   )
@@ -199,7 +198,7 @@ export function Badge({ children, className = '' }: { children: ReactNode; class
 /** Light stepper used everywhere. At qty 1 (when removable) the minus becomes a trash icon. */
 export function Stepper({ qty, onMinus, onPlus, min = 0 }: { qty: number; onMinus: () => void; onPlus: () => void; min?: number }) {
   const trash = min === 0 && qty === 1
-  const buttonClass = 'group grid size-11 shrink-0 place-items-center rounded-full disabled:opacity-40'
+  const buttonClass = 'group grid size-11 shrink-0 place-items-center rounded-full disabled:cursor-not-allowed'
   const lang = useContext(LanguageContext)
   return (
     <div className="flex shrink-0 items-center gap-0.5">
@@ -209,7 +208,7 @@ export function Stepper({ qty, onMinus, onPlus, min = 0 }: { qty: number; onMinu
         aria-label={trash ? accessibilityText.remove[lang] : accessibilityText.decrease[lang]}
         className={buttonClass}
       >
-        <span className="grid size-8 place-items-center rounded-full bg-tile text-ink-2 transition group-active:bg-line">
+        <span className="grid size-8 place-items-center rounded-full bg-tile text-ink-2 transition group-active:bg-line group-disabled:bg-disabled group-disabled:text-disabled-ink group-disabled:transition-none">
           {trash ? <Trash2 className="size-4" /> : <Minus className="size-4" strokeWidth={2.25} />}
         </span>
       </button>
@@ -219,7 +218,7 @@ export function Stepper({ qty, onMinus, onPlus, min = 0 }: { qty: number; onMinu
         aria-label={accessibilityText.increase[lang]}
         className={buttonClass}
       >
-        <span className="grid size-8 place-items-center rounded-full bg-brand-soft text-action transition group-active:bg-brand/20">
+        <span className="grid size-8 place-items-center rounded-full bg-brand-soft text-action transition group-active:bg-action/15">
           <Plus className="size-4" strokeWidth={2.25} />
         </span>
       </button>
@@ -235,7 +234,7 @@ export function AddButton({ onClick, label, qty }: { onClick: () => void; label:
       aria-label={label}
       className="group relative flex h-11 min-w-11 shrink-0 items-center justify-end rounded-full"
     >
-      {qty > 0 && <span className="-mr-2 flex h-7 items-center rounded-l-full bg-brand-soft pr-2.5 pl-2 text-caption font-semibold text-brand-strong tabular-nums">×{qty}</span>}
+      {qty > 0 && <span className="-mr-2 flex h-7 items-center rounded-full bg-brand-soft pr-2.5 pl-2 text-caption font-semibold text-action tabular-nums">×{qty}</span>}
       <span className="relative grid size-8 place-items-center rounded-full bg-action text-white transition group-active:scale-95 group-active:bg-action-pressed">
         <Plus className="size-4" strokeWidth={2.5} />
       </span>
@@ -257,7 +256,7 @@ const tagTone: Record<TagTone, string> = {
   danger: 'bg-danger-soft text-danger',
 }
 export const tagClass = (tone: TagTone = 'neutral', compact = false) =>
-  `inline-flex shrink-0 items-center gap-1 rounded-sm text-caption font-medium whitespace-nowrap ${compact ? 'h-5 px-1.5' : 'h-6 px-2'} ${tagTone[tone]}`
+  `inline-flex shrink-0 items-center gap-1 rounded-full text-caption font-medium whitespace-nowrap ${compact ? 'h-5 px-1.5' : 'h-6 px-2'} ${tagTone[tone]}`
 
 export function Tag({ tone, compact, className = '', children }: { tone?: TagTone; compact?: boolean; className?: string; children: ReactNode }) {
   return <span className={`${tagClass(tone, compact)} ${className}`}>{children}</span>
@@ -270,10 +269,10 @@ export function Tag({ tone, compact, className = '', children }: { tone?: TagTon
  * dining mode and payment tips. Shapes may differ; border, radius, type size and padding do not.
  */
 export const choiceState = (active: boolean) => (active
-  ? 'border-brand bg-brand-soft font-medium text-ink'
+  ? 'border-action bg-brand-soft font-medium text-ink'
   : 'border-line bg-white text-ink')
 
-export const choiceBase = 'border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:pointer-events-none disabled:border-line disabled:bg-tile disabled:text-muted disabled:opacity-60'
+export const choiceBase = `border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action ${disabledControlClass}`
 
 export function OptionChip({ active, onClick, disabled, className = '', children }: { active: boolean; onClick: () => void; disabled?: boolean; className?: string; children: ReactNode }) {
   return (
@@ -290,15 +289,44 @@ export function OptionChip({ active, onClick, disabled, className = '', children
 
 /* ---------- Imagery ---------- */
 
-export function DishImage({ src, alt, className = '' }: { src?: string; alt: string; className?: string }) {
-  const [failed, setFailed] = useState(false)
-  if (!src || failed)
+export function DishImage({
+  src,
+  alt,
+  className = '',
+  fullSize = false,
+  loading,
+  fetchPriority,
+}: {
+  src?: string
+  alt: string
+  className?: string
+  fullSize?: boolean
+  loading?: 'eager' | 'lazy'
+  fetchPriority?: 'high' | 'low'
+}) {
+  const [failure, setFailure] = useState<{ src: string; final: boolean }>()
+  if (!src || (failure?.src === src && failure.final))
     return (
       <div className={`flex items-center justify-center bg-line ${className}`} role="img" aria-label={alt}>
         <ShoppingBag className="h-1/3 w-1/3 text-muted/40" strokeWidth={1.5} />
       </div>
     )
-  return <img src={src} alt={alt} decoding="async" onError={() => setFailed(true)} className={`object-cover ${className}`} />
+  const dishPath = `${import.meta.env.BASE_URL}dishes/`
+  const imageSrc = !fullSize && failure?.src !== src && src.startsWith(dishPath) && src.endsWith('.webp')
+    ? `${import.meta.env.BASE_URL}dish-thumbnails/${src.slice(dishPath.length)}`
+    : src
+  return (
+    <img
+      key={imageSrc}
+      src={imageSrc}
+      alt={alt}
+      loading={loading}
+      fetchPriority={fetchPriority}
+      decoding="async"
+      onError={() => setFailure({ src, final: imageSrc === src })}
+      className={`bg-tile object-cover ${className}`}
+    />
+  )
 }
 
 /** 56px list thumbnail — the only thumbnail size outside the menu grid. */
@@ -309,7 +337,7 @@ export function Thumb({ src }: { src?: string }) {
 export function Logo({ size = 72 }: { size?: 64 | 72 }) {
   return (
     <span
-      className="flex shrink-0 items-center justify-center rounded-full bg-brand font-serif font-bold text-white ring-4 ring-white shadow-soft"
+      className="flex shrink-0 items-center justify-center rounded-full bg-action font-serif font-bold text-white ring-4 ring-white shadow-soft"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       悅
@@ -449,18 +477,18 @@ export function ChoiceRow({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex min-h-14 w-full items-center gap-3 rounded-md px-4 py-2 text-left text-body ${choiceBase} ${choiceState(active)}`}
+      className={`group flex min-h-14 w-full items-center gap-3 rounded-md px-4 py-2 text-left text-body ${choiceBase} ${choiceState(active)}`}
     >
       <span
-        className={`flex size-8 shrink-0 items-center justify-center rounded-full text-callout font-semibold ${
+        className={`flex size-8 shrink-0 items-center justify-center rounded-full text-callout font-semibold group-disabled:bg-white/50 group-disabled:text-disabled-ink ${
           active ? 'bg-action text-white' : 'bg-tile text-ink-2'
         }`}
       >
         {leading}
       </span>
       <span className="min-w-0 flex-1">{children}</span>
-      <span className={`grid size-5 shrink-0 place-items-center rounded-full border-2 ${active ? 'border-brand' : 'border-line'}`}>
-        {active && <span className="size-2.5 rounded-full bg-brand" />}
+      <span className={`grid size-5 shrink-0 place-items-center rounded-full border-2 group-disabled:border-disabled-ink ${active ? 'border-action' : 'border-line'}`}>
+        {active && <span className="size-2.5 rounded-full bg-action group-disabled:bg-disabled-ink" />}
       </span>
     </button>
   )
@@ -473,12 +501,12 @@ export function EmptyArt() {
       <path d="M48 14c-4 5 4 8 0 14M60 8c-4 5 4 8 0 14M72 14c-4 5 4 8 0 14" stroke="var(--color-line)" strokeWidth="3" strokeLinecap="round" />
       <ellipse cx="60" cy="96" rx="34" ry="5" fill="var(--color-tile)" />
       <path d="M16 46h88c0 24-19.7 44-44 44S16 70 16 46Z" fill="var(--color-brand-soft)" />
-      <rect x="12" y="40" width="96" height="10" rx="5" fill="var(--color-brand)" />
+      <rect x="12" y="40" width="96" height="10" rx="5" fill="var(--color-action)" />
       <circle cx="47" cy="64" r="3.5" fill="var(--color-ink)" />
       <circle cx="73" cy="64" r="3.5" fill="var(--color-ink)" />
       <path d="M53 76c4-3 10-3 14 0" stroke="var(--color-ink)" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="38" cy="72" r="4" fill="var(--color-brand)" opacity=".25" />
-      <circle cx="82" cy="72" r="4" fill="var(--color-brand)" opacity=".25" />
+      <circle cx="38" cy="72" r="4" fill="var(--color-action)" opacity=".25" />
+      <circle cx="82" cy="72" r="4" fill="var(--color-action)" opacity=".25" />
     </svg>
   )
 }

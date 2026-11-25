@@ -15,7 +15,7 @@ export function Welcome({ lang, onLanguage, onEnter }: { lang: Lang; onLanguage:
       <button
         onClick={onLanguage}
         aria-label={t(strings.language)}
-        className="absolute top-3 right-5 flex h-11 items-center gap-1 rounded-full bg-black/30 px-4 text-callout font-medium backdrop-blur-md sm:pointer-fine:top-12"
+        className="absolute top-3 right-5 flex h-11 items-center gap-1 rounded-full bg-black/30 px-4 text-callout font-medium backdrop-blur-md focus-visible:outline-brand-soft sm:pointer-fine:top-12"
       >
         <Globe className="size-4" />
         {LANGS.find((l) => l.code === lang)!.short}

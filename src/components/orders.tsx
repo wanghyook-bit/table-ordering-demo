@@ -1,5 +1,5 @@
 import { uiText } from '../i18n'
-import { Check, ChevronRight, Clock, Wallet, X } from 'lucide-react'
+import { Check, ChevronRight, Clock, Copy, Wallet, X } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { strings, type L10n, type Lang } from '../data'
 import { optsLabel, type CartLine } from '../cart'
@@ -17,8 +17,8 @@ type OrderStatus = 'waiting' | 'accepted' | 'cancelled'
 export function orderDisplayState(status: OrderStatus, allPaid: boolean, awaitingSettlement: boolean, lang: Lang) {
   if (status === 'waiting') return { tone: 'pending', label: strings.awaitingAcceptance[lang] } as const
   if (status === 'cancelled') return { tone: 'neutral', label: uiText(lang, 'cancelled_5899a') } as const
-  if (!allPaid) return { tone: 'pending', label: uiText(lang, 'awaiting_payment_99cbe') } as const
-  if (awaitingSettlement) return { tone: 'pending', label: uiText(lang, 'awaiting_settlement_20fa3') } as const
+  if (!allPaid) return { tone: 'brand', label: uiText(lang, 'awaiting_payment_99cbe') } as const
+  if (awaitingSettlement) return { tone: 'success', label: uiText(lang, 'paid_86900') } as const
   return { tone: 'success', label: uiText(lang, 'completed_f1a22') } as const
 }
 
@@ -26,8 +26,7 @@ export function formatOrderTime(round?: Round): string | undefined {
   if (!round?.createdAt) return round?.time
   const date = new Date(round.createdAt)
   if (Number.isNaN(date.getTime())) return round.time
-  const two = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${two(date.getMonth() + 1)}-${two(date.getDate())} ${two(date.getHours())}:${two(date.getMinutes())}:${two(date.getSeconds())}`
+  return formatOrderDateTime(date)
 }
 
 export function calculateBill(rounds: Round[], payments: PaymentRecord[]) {
@@ -49,14 +48,45 @@ export function calculateBill(rounds: Round[], payments: PaymentRecord[]) {
   }
 }
 
-const settlementTime = new Intl.DateTimeFormat('en-US', {
+const orderDateTime = new Intl.DateTimeFormat('en-GB', {
   timeZone: 'Asia/Hong_Kong',
   year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
 })
 
-function formatSettlementTime(date: Date) {
-  const parts = Object.fromEntries(settlementTime.formatToParts(date).map(({ type, value }) => [type, value]))
-  return `${parts.month}/${parts.day}/${parts.year} ${parts.hour}:${parts.minute}:${parts.second}`
+function formatOrderDateTime(date: Date) {
+  const parts = Object.fromEntries(orderDateTime.formatToParts(date).map(({ type, value }) => [type, value]))
+  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}:${parts.second}`
+}
+
+function CopyOrderNumber({ orderNo, lang, onCopied }: { orderNo: number; lang: Lang; onCopied: () => void }) {
+  const [copyFailed, setCopyFailed] = useState(false)
+
+  async function copyNumber() {
+    try {
+      await navigator.clipboard.writeText(String(orderNo))
+      setCopyFailed(false)
+      onCopied()
+    } catch {
+      setCopyFailed(true)
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={copyNumber}
+        aria-label={`${uiText(lang, 'copy_order_number')} #${orderNo}`}
+        className="relative inline-flex min-w-11 items-center justify-end gap-2 before:absolute before:inset-x-0 before:top-1/2 before:h-11 before:-translate-y-1/2"
+      >
+        #{orderNo}
+        <Copy className="size-4 text-ink-2" aria-hidden="true" />
+      </button>
+      <span role="status" className={copyFailed ? 'block text-caption text-ink-2' : 'sr-only'}>
+        {copyFailed ? uiText(lang, 'order_number_copy_failed') : null}
+      </span>
+    </>
+  )
 }
 
 export const itemCount = (lines: CartLine[]) => lines.reduce((sum, line) => sum + line.qty, 0)
@@ -68,7 +98,7 @@ export function ItemList({ lines, lang, amounts, status }: { lines: CartLine[]; 
     const options = optsLabel(line.opts, line.note, lang)
     return <li key={line.key} className="confirm-item">
       <DishImage src={line.dish.image} alt={line.dish.name[lang]} className="confirm-item-image" />
-      <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status ${status}`}>{status === 'ordered' ? (uiText(lang, 'ordered_fc521')) : (uiText(lang, 'not_ordered_95579'))}</span>}<strong>{line.dish.name[lang]}</strong></div>
+      <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status rounded-full ${status}`}>{status === 'ordered' ? (uiText(lang, 'ordered_fc521')) : (uiText(lang, 'not_ordered_95579'))}</span>}<strong>{line.dish.name[lang]}</strong></div>
         {options && <p className="confirm-options">{options}</p>}<div className="confirm-item-bottom"><span>×{line.qty}</span><strong>{money((amounts[line.key] ?? 0) / 100)}</strong></div></div>
     </li>
   })}</ul>
@@ -105,6 +135,7 @@ export function OrderDetail({
   onAddMore,
   onPay,
   onFinish,
+  onCopyOrderNumber,
   checkingPayment = false,
   table, online, canAddDishes, manualSettlement, settled, onSettle, tablePrepay, guests, orderNote,
 }: {
@@ -125,6 +156,7 @@ export function OrderDetail({
   onAddMore: () => void
   onPay: () => void
   onFinish: () => void
+  onCopyOrderNumber: () => void
   checkingPayment?: boolean
   table: string | null
   online: boolean
@@ -150,11 +182,12 @@ export function OrderDetail({
   const StatusIcon = status === 'cancelled' ? X : Clock
 
   if (table && status) {
-    const { tone, label } = orderDisplayState(status, allPaid, manualSettlement && !settled, lang)
+    const orderedAt = formatOrderTime(rounds[0])
+    const awaitingSettlement = allPaid && manualSettlement && !settled
+    const { tone, label } = orderDisplayState(status, allPaid, awaitingSettlement, lang)
     const description = status === 'waiting' ? t(strings.payAfterAcceptance)
       : status === 'cancelled' ? t(strings.rejectedHint)
-      : allPaid ? uiText(lang, 'payment_successful_e6774')
-      : online ? undefined : uiText(lang, 'please_pay_at_the_cashier_94edf')
+      : !allPaid && !online ? uiText(lang, 'please_pay_at_the_cashier_94edf') : undefined
     const showPay = status === 'accepted' && online && remaining > 0
     return (
     <Page className="order-design" title={uiText(lang, 'order_details_22864')} onBack={onClose} backDisabled={checkingPayment} footer={status === 'accepted' && (canAddDishes || showPay || allPaid) && (
@@ -164,11 +197,11 @@ export function OrderDetail({
       </div>
     )}>
       <Section>
-        <div className="order-success order-status-illustration" data-tone={tone}>
-          {tone === 'success'
+        <div className="order-success order-status-illustration" data-tone={allPaid ? undefined : tone}>
+          {allPaid
             ? <img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.png`} width={280} height={150} alt="" />
             : <div className="order-status-art" aria-hidden="true"><span className="order-status-orbit" /><span className="order-status-circle"><StatusIcon size={44} strokeWidth={2.5} /></span></div>}
-          <strong>{label}</strong>{description && <span className="order-status-description">{description}</span>}
+          <strong>{allPaid ? uiText(lang, 'payment_successful_e6774') : label}</strong>{description && <span className="order-status-description">{description}</span>}
         </div>
       </Section>
       <Section
@@ -194,10 +227,11 @@ export function OrderDetail({
         <OrderAmounts quote={bill.quote} tip={bill.tip} total={total} paid={paid} remaining={status === 'cancelled' ? 0 : remaining} lang={lang} onPaymentHistory={payments.length ? () => setHistoryOpen(true) : undefined} />
       </Section>
       <Section title={uiText(lang, 'order_information_fd7fd')}>
-        <dl className="order-information">
-          <Row k={uiText(lang, 'order_number_6b17e')} v={`#${orderNo}`} />
-          {formatOrderTime(rounds[0]) && <Row k={uiText(lang, 'order_time_38773')} v={formatOrderTime(rounds[0])} />}
-          {orderNote && <Row k={uiText(lang, 'order_note_756d0')} v={orderNote} />}
+        <dl className="amount-rows order-information">
+          <Row k={uiText(lang, 'order_number_6b17e')} v={<CopyOrderNumber key={orderNo} orderNo={orderNo} lang={lang} onCopied={onCopyOrderNumber} />} />
+          {orderedAt && <Row k={uiText(lang, 'order_time_38773')} v={<time dateTime={rounds[0]?.createdAt}>{orderedAt}</time>} />}
+          {awaitingSettlement && <Row k={uiText(lang, 'order_status')} v={uiText(lang, 'awaiting_store_settlement')} />}
+          {orderNote && <Row k={uiText(lang, 'order_note_756d0')} v={<span className="whitespace-pre-wrap font-semibold">{orderNote}</span>} />}
         </dl>
       </Section>
       {historyOpen && (
@@ -239,12 +273,12 @@ export function OrderDetail({
         <>
           <Section>
             <StatusPanel
-              tone={status === 'cancelled' ? 'danger' : status === 'accepted' && allPaid ? 'success' : 'pending'}
+              tone={status === 'cancelled' ? 'danger' : status === 'waiting' ? 'pending' : allPaid ? 'success' : 'brand'}
               icon={status === 'accepted' && allPaid ? <Check className="size-5" /> : <StatusIcon className="size-5" aria-hidden="true" />}
               title={status === 'accepted' ? (remaining > 0 ? (uiText(lang, 'awaiting_payment_99cbe')) : manualSettlement && !settled ? (uiText(lang, 'awaiting_settlement_20fa3')) : (uiText(lang, 'completed_f1a22'))) : t(status === 'cancelled' ? strings.orderCancelled : strings.awaitingAcceptance)}
               description={status === 'accepted' ? (remaining > 0 && !online ? (uiText(lang, 'please_pay_at_the_cashier_94edf')) : t(strings.merchantAccepted)) : t(status === 'cancelled' ? strings.rejectedHint : strings.payAfterAcceptance)}
             />
-            {table && <div className="mt-3 border-t border-line pt-3"><TableIdentity table={table} mode={mode} guests={guests} lang={lang} /></div>}
+            {table && <div className="mt-section-gap"><TableIdentity table={table} mode={mode} guests={guests} lang={lang} /></div>}
           </Section>
 
           {status !== 'cancelled' && (
@@ -254,7 +288,7 @@ export function OrderDetail({
                   <dt className="text-callout font-semibold text-ink-2">{t(allPaid ? strings.fullyPaid : strings.balanceDue)}</dt>
                   <dd className="mt-1 text-title font-semibold text-ink tabular-nums">{money(remaining)}</dd>
                 </div>
-                <div className="amount-rows mt-3 border-t border-line pt-3">
+                <div className="amount-rows section-divider">
                   <Row k={t(strings.billTotal)} v={money(total)} />
                   <Row k={t(strings.confirmedPaid)} v={money(paid)} />
                 </div>
@@ -322,7 +356,7 @@ export function OrderDetail({
             <Section title={t(strings.receiptBreakdown)}>
               <FeeRows quote={bill.quote} tip={bill.tip} lang={lang} totalLabel={t(strings.billTotal)} />
               {methods.size > 0 && (
-                <div className="mt-4 border-t border-line pt-3">
+                <div className="mt-section-gap">
                   <h3 className="mb-2 text-callout font-semibold text-ink-2">{t(strings.payMethod)}</h3>
                   <dl className="amount-rows">
                     {[...methods].map(([id, method]) => <Row key={id} k={t(method.name)} v={money(method.amount)} />)}
@@ -330,10 +364,10 @@ export function OrderDetail({
                 </div>
               )}
               {lastPayment && (
-                <dl className="mt-4 space-y-2 border-t border-line pt-3">
+                <dl className="amount-rows mt-section-gap">
                   <Row k={t(strings.receiptNumber)} v={receiptNo} />
                   <Row k={t(strings.orderType)} v={t(mode === 'dine' ? strings.dineIn : strings.takeaway)} />
-                  <Row k={t(strings.settledAt)} v={<time dateTime={lastPayment.paidAt.toISOString()}>{formatSettlementTime(lastPayment.paidAt)}</time>} />
+                  <Row k={t(strings.settledAt)} v={<time dateTime={lastPayment.paidAt.toISOString()}>{formatOrderDateTime(lastPayment.paidAt)}</time>} />
                 </dl>
               )}
             </Section>
@@ -365,7 +399,7 @@ export function OrderAmounts({ quote, tip = 0, total, paid, remaining, lang, onP
       {tip > 0 && <Row k={strings.tip[lang]} v={money(tip / 100)} />}
       {quote.savings.map((saving) => <Row key={saving.key} k={saving.name[lang]} v={saving.included ? `${feeText.save[lang]} ${money(saving.cents / 100)} · ${feeText.included[lang]}` : `−${money(saving.cents / 100)}`} />)}
     </div>
-    {showSummary && <div className="amount-rows order-amount-summary">
+    {showSummary && <div className="amount-rows order-amount-summary section-divider">
       <Row k={strings.billTotal[lang]} v={money(total)} strong />
       {paid !== undefined && <Row k={onPaymentHistory ? <button type="button" onClick={onPaymentHistory} className="inline-flex items-center gap-1">{strings.confirmedPaid[lang]} <ChevronRight size={16} /></button> : strings.confirmedPaid[lang]} v={money(paid)} strong />}
       <Row k={strings.balanceDue[lang]} v={<span className={remaining > 0 ? 'text-action' : undefined}>{money(remaining)}</span>} strong />
@@ -380,7 +414,7 @@ function PaymentHistory({ payments, lang }: { payments: PaymentRecord[]; lang: L
         <li key={payment.id} className="flex items-start justify-between gap-3 py-3">
           <div className="min-w-0">
             <p className="text-body font-medium">{payment.name[lang]}</p>
-            <time className="mt-0.5 block text-caption text-ink-2" dateTime={payment.paidAt.toISOString()}>{formatSettlementTime(payment.paidAt)}</time>
+            <time className="mt-0.5 block text-caption text-ink-2" dateTime={payment.paidAt.toISOString()}>{formatOrderDateTime(payment.paidAt)}</time>
             {payment.tip > 0 && <p className="mt-0.5 text-caption text-ink-2">{uiText(lang, 'tip_d8c94')} {money(payment.tip / 100)}</p>}
           </div>
           <span className="shrink-0 text-body font-semibold tabular-nums">{money(payment.amount)}</span>
