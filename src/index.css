@@ -242,3 +242,18 @@
 .confirm-item-groups { display:flex; flex-direction:column; gap:8px; }
 .confirm-design section:has(.order-amounts) .order-amount-breakdown > div { font-size:14px; line-height:21.75px; }
 .confirm-design section:has(.order-amounts) .order-amount-breakdown dd { font-size:15px; }
+
+/* My orders list uses the project's existing surface and type tokens. */
+.my-orders-page > header { background:#fff; }
+.my-orders-card { margin:20px; padding:16px; border-radius:16px; background:#fff; }
+.my-orders-heading { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+.my-orders-heading h2 { font-size:17px; line-height:23px; font-weight:600; color:var(--color-ink); }
+.my-orders-heading p { margin-top:4px; font-size:13px; color:var(--color-ink-2); }
+.my-orders-status { font-size:14px; color:var(--color-brand); }
+.my-orders-status.complete { color:var(--color-success); }
+.my-orders-images { display:flex; gap:8px; margin-top:20px; overflow:hidden; }
+.my-orders-image { width:72px; height:72px; flex-shrink:0; border-radius:12px; }
+.my-orders-total { display:flex; justify-content:space-between; align-items:center; margin-top:20px; color:var(--color-ink-2); font-size:14px; }
+.my-orders-total strong { font-size:17px; color:var(--color-ink); }
+.my-orders-actions { display:flex; justify-content:flex-end; gap:12px; margin-top:20px; }
+.my-orders-actions button { min-height:44px; min-width:112px; }

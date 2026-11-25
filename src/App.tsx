@@ -23,6 +23,7 @@ import { OrderDetail, calculateBill, type PaymentRecord, type Round } from './co
 import { ConfirmPage, hasValidOrderContact, type Contact } from './components/confirm'
 import { PaymentFlow, PaymentResultSheet, type TablePaymentResult } from './components/pay'
 import { MemberPage, type Member } from './components/member'
+import { MyOrders } from './components/my-orders'
 import { useBackSwipe, useBrowserBack } from './gestures'
 
 // One table session = one order number; rounds are first order + add-ons
@@ -67,7 +68,7 @@ function demoCart(): CartLine[] {
 type OrderRequest = { status: 'waiting' | 'cancelled'; round: Round }
 
 type Sheet = null | 'language' | 'cart' | 'categories'
-type Page = null | 'search' | 'confirm' | 'orders' | 'pay' | 'member' | { dish: Dish }
+type Page = null | 'search' | 'confirm' | 'orders' | 'my-orders' | 'pay' | 'member' | { dish: Dish }
 
 export default function App() {
   // Keep the 390 × 844 preview intact when the desktop side panel is short.
@@ -113,6 +114,7 @@ export default function App() {
   const [sheet, setSheet] = useState<Sheet>(null)
   const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.pendingRound || savedSession?.tablePaymentOpen ? 'pay' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
   const [toast, setToast] = useState<string | null>(null)
+  const [detailFromList, setDetailFromList] = useState(false)
   const [active, setActive] = useState('all')
   const [scrollY, setScrollY] = useState(0)
   const [categoryPinned, setCategoryPinned] = useState(false)
@@ -313,7 +315,7 @@ export default function App() {
                 <ChevronLeft className="size-6" aria-hidden="true" />
               </button>}
               <div className="absolute top-3 right-4 flex h-11 items-center gap-0.5 rounded-full border border-white/20 bg-black/25 p-0.5 backdrop-blur-md">
-                <IconButton variant="image" label={t(strings.orders)} badge={rounds.length} onClick={() => setPage('orders')}>
+                <IconButton variant="image" label={t(strings.orders)} badge={rounds.length ? 1 : 0} onClick={() => setPage('my-orders')}>
                   <ReceiptText className="size-4.5" />
                 </IconButton>
                 <span className="h-5 w-px shrink-0 bg-white/30" aria-hidden="true" />
@@ -461,6 +463,8 @@ export default function App() {
             />
           )}
 
+          {page === 'my-orders' && <MyOrders rounds={request ? [request.round] : rounds} status={request?.status ?? (rounds.length ? 'accepted' : null)} total={request ? calculateBill([request.round], payments).total : bill.total} paid={bill.paid} settled={settled} manualSettlement={manualSettlement} table={table} canAddDishes={canOrder} lang={lang} onClose={() => setPage(null)} onDetails={() => { setDetailFromList(true); setPage('orders') }} onAddMore={() => setPage(null)} />}
+
           {(page === 'orders' || (tablePaymentOpen && !pendingRound)) && (
             <OrderDetail
               rounds={rounds}
@@ -492,12 +496,14 @@ export default function App() {
               onClose={() => {
                 setLastPaidAmount(null)
                 setAnimateOrderSuccess(false)
-                setPage(null)
+                setPage(detailFromList ? 'my-orders' : null)
+                setDetailFromList(false)
               }}
               onAddMore={() => {
                 if (!table || !canOrder) return
                 setLastPaidAmount(null)
                 setAnimateOrderSuccess(false)
+                setDetailFromList(false)
                 setPage(null)
               }}
               onPay={() => {
