@@ -35,6 +35,9 @@ const RECEIPT_NO = '0001'
 const CATEGORY_SCROLL_INSET = 12
 const entry = new URLSearchParams(window.location.search)
 const entryTable = entry.get('code') === 'table' ? entry.get('table')?.trim() || 'A08' : null
+const requestedTemplate = entry.get('menuTemplate')
+const menuTemplate = requestedTemplate === 'list' || requestedTemplate === 'large' ? requestedTemplate : 'grid'
+const verticalCategories = entry.get('categoryLayout') === 'vertical'
 const tableTrial = !!entryTable && entry.get('trial') === '1'
 const memberEntryEnabled = entry.get('member') !== '0'
 const storeCode = entry.get('code') === 'store'
@@ -129,16 +132,18 @@ export default function App() {
   const [paymentResult, setPaymentResult] = useState<TablePaymentResult | null>(savedSession?.paymentResult ?? null)
   const [sheet, setSheet] = useState<Sheet>(null)
   const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.tablePaymentOpen ? 'pay' : savedSession?.pendingRound ? 'confirm' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
-  const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'neutral' } | null>(null)
+  const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'neutral'; inCart?: boolean } | null>(null)
   const [detailFromList, setDetailFromList] = useState(savedSession?.detailFromList === true)
   const confirmBackToCart = useRef(false)
   const [active, setActive] = useState('all')
   const [scrollY, setScrollY] = useState(0)
   const [categoryPinned, setCategoryPinned] = useState(false)
+  const [moreCategories, setMoreCategories] = useState(false)
   const [bump, setBump] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const categoryNavRef = useRef<HTMLElement>(null)
   const categoryTabsRef = useRef<HTMLDivElement>(null)
+  const categoryAtScrollLimit = useRef<{ id: string; reached: boolean } | null>(null)
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
   const menuSwipe = useBackSwipe(!table && entered && !page && !sheet ? () => {
     setEntered(false)
@@ -218,16 +223,23 @@ export default function App() {
 
   const stickyOffset = () => {
     const nav = categoryNavRef.current
-    return nav ? nav.offsetHeight + (parseFloat(getComputedStyle(nav).top) || 0) : 0
+    if (!nav) return 0
+    const top = parseFloat(getComputedStyle(nav).top) || 0
+    return top + (verticalCategories ? 0 : nav.offsetHeight)
   }
 
   const scrollTo = (id: string) => {
     const el = scrollRef.current
     if (!el) return
     const target = sectionRefs.current[id]
+    const top = target ? Math.max(0, target.offsetTop - stickyOffset() - CATEGORY_SCROLL_INSET) : 0
+    const limit = el.scrollHeight - el.clientHeight
+    // Several short sections can share the same scroll destination near the end.
+    categoryAtScrollLimit.current = target && top >= limit
+      ? { id, reached: el.scrollTop >= limit - 1 }
+      : null
     setActive(id)
-    if (id === 'all') el.scrollTo({ top: 0, behavior: menuScrollBehavior() })
-    if (target) el.scrollTo({ top: Math.max(0, target.offsetTop - stickyOffset() - CATEGORY_SCROLL_INSET), behavior: menuScrollBehavior() })
+    el.scrollTo({ top, behavior: menuScrollBehavior() })
   }
 
   const onScroll = () => {
@@ -242,6 +254,12 @@ export default function App() {
     const offset = stickyOffset() + CATEGORY_SCROLL_INSET + 1
     const first = sectionRefs.current[categories[0].id]
     if (first && el.scrollTop < first.offsetTop - offset - 30) return setActive('all')
+    const selectedAtLimit = categoryAtScrollLimit.current
+    if (el.scrollHeight - el.clientHeight - el.scrollTop < 2) {
+      if (selectedAtLimit) selectedAtLimit.reached = true
+      return setActive(selectedAtLimit?.id ?? categories[categories.length - 1].id)
+    }
+    if (selectedAtLimit?.reached) categoryAtScrollLimit.current = null
     const activationLine = el.getBoundingClientRect().top + offset
     let current = 'all'
     for (const c of categories) {
@@ -253,13 +271,35 @@ export default function App() {
 
   const barSolid = scrollY > 140
 
+  const updateCategoryOverflow = useCallback((tabs: HTMLDivElement) => {
+    setMoreCategories(tabs.scrollLeft + tabs.clientWidth < tabs.scrollWidth - 2)
+  }, [])
+  useEffect(() => {
+    const tabs = categoryTabsRef.current
+    if (verticalCategories || !tabs) return
+    updateCategoryOverflow(tabs)
+    const observer = new ResizeObserver(() => updateCategoryOverflow(tabs))
+    observer.observe(tabs)
+    return () => observer.disconnect()
+  }, [entered, lang, updateCategoryOverflow])
+
+
   useEffect(() => {
     const container = categoryTabsRef.current
     const selected = container?.querySelector<HTMLElement>('[aria-pressed="true"]')
     if (!container || !selected) return
+    if (verticalCategories) {
+      const top = selected.offsetTop
+      const bottom = top + selected.offsetHeight
+      if (top < container.scrollTop || bottom > container.scrollTop + container.clientHeight) {
+        container.scrollTo({ top: top - (container.clientHeight - selected.offsetHeight) / 2, behavior: menuScrollBehavior() })
+      }
+      return
+    }
     const left = selected.getBoundingClientRect().left - container.getBoundingClientRect().left + container.scrollLeft
     const right = left + selected.offsetWidth
-    if (left < container.scrollLeft || right > container.scrollLeft + container.clientWidth) {
+    const edgeFade = container.hasAttribute('data-more-categories') ? 24 : 0
+    if (left < container.scrollLeft || right > container.scrollLeft + container.clientWidth - edgeFade) {
       container.scrollTo({ left: left - (container.clientWidth - selected.offsetWidth) / 2, behavior: menuScrollBehavior() })
     }
   }, [active])
@@ -380,6 +420,7 @@ export default function App() {
     scrollRef.current?.scrollTo({ top: 0 })
   }
 
+  const cartFeedback = entered && !page && !sheet && count > 0 && toast?.inCart ? toast.message : undefined
   const showMenuNotice = readonly || storeState === 'closed' || storeState === 'offline'
   const darkStatus = (entered && page === null && (barSolid || showMenuNotice)) || page === 'my-orders' || page === 'member' || page === 'orders' || page === 'confirm' || page === 'pay'
   const categoryPillClass = (isActive: boolean) => `flex h-11 shrink-0 items-center rounded-full text-body whitespace-nowrap transition-colors ${isActive ? 'font-semibold text-action' : 'text-muted'}`
@@ -400,7 +441,7 @@ export default function App() {
           />
         )}
 
-        {entered && <div {...menuSwipe} ref={scrollRef} inert={page !== null} onScroll={onScroll} className={`no-scrollbar h-full overflow-y-auto ${count > 0 ? 'pb-28' : 'pb-6'}`}>
+        {entered && <div {...menuSwipe} ref={scrollRef} inert={page !== null} onScroll={onScroll} className={`menu-scroll no-scrollbar h-full overflow-y-auto ${count > 0 ? 'menu-scroll-with-cart' : ''} ${verticalCategories ? 'menu-scroll-vertical' : ''}`}>
           {showMenuNotice && <div role="status" className="relative z-10 bg-pending-soft px-5 py-3 text-center text-callout font-medium text-pending">{storeState === 'closed' ? (uiText(lang, 'the_store_is_closed_and_cannot_take_or_42d99')) : storeState === 'offline' ? (uiText(lang, 'the_store_is_offline_and_cannot_take_o_55628')) : (uiText(lang, 'menu_browsing_only_f84fe'))}</div>}
           {/* Hero */}
           <header className="relative z-0 bg-banner-edge sm:pointer-fine:pt-11">
@@ -467,52 +508,67 @@ export default function App() {
             </div>
           )}
 
-          {/* Sticky category pills */}
-          <nav ref={categoryNavRef} aria-label={t(strings.categories)} className={`sticky top-0 z-20 mt-3 flex items-center bg-white px-5 py-1 transition-shadow sm:pointer-fine:top-11 ${categoryPinned ? 'shadow-divider' : ''}`}>
-            <div className="z-10 flex shrink-0 items-center bg-white pr-2">
-              <button type="button" aria-label={t(strings.search)} onClick={() => setPage('search')} className="-ml-2.5 grid size-11 shrink-0 place-items-center text-ink transition-opacity active:opacity-60">
-                <Search className="size-6" aria-hidden="true" />
-              </button>
-              <button type="button" aria-pressed={active === 'all'} aria-current={active === 'all' ? 'true' : undefined} onClick={() => scrollTo('all')} className={categoryPillClass(active === 'all')}><span className={`flex h-9 items-center rounded-full px-4 ${active === 'all' ? 'bg-brand-soft text-action' : ''}`}>{t(strings.all)}</span></button>
-            </div>
-            <div ref={categoryTabsRef} data-horizontal-scroll className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          <div className="menu-display" data-menu-template={menuTemplate} data-category-layout={verticalCategories ? 'vertical' : 'horizontal'}>
+            {verticalCategories && (
+              <div className={`menu-search-row sticky top-0 z-25 bg-white px-gutter sm:pointer-fine:top-11 ${categoryPinned ? 'shadow-divider' : ''}`}>
+                <button type="button" aria-label={t(strings.search)} onClick={() => setPage('search')} className="flex h-11 w-full items-center gap-2 rounded-full bg-tile px-4 text-left text-callout text-ink-2">
+                  <Search className="size-5 shrink-0 text-ink" aria-hidden="true" />
+                  {t(strings.findDish)}
+                </button>
+              </div>
+            )}
+            <nav ref={categoryNavRef} aria-label={t(strings.categories)} className={`menu-navigation sticky top-0 z-20 mt-3 flex items-center bg-white px-5 py-1 transition-shadow sm:pointer-fine:top-11 ${categoryPinned && !verticalCategories ? 'shadow-divider' : ''}`}>
+              <div className="menu-navigation-start z-10 flex shrink-0 items-center bg-white pr-2">
+                {!verticalCategories && (
+                  <button type="button" aria-label={t(strings.search)} onClick={() => setPage('search')} className="-ml-2.5 grid size-11 shrink-0 place-items-center text-ink transition-opacity active:opacity-60">
+                    <Search className="size-6" aria-hidden="true" />
+                  </button>
+                )}
+                <button type="button" aria-pressed={active === 'all'} aria-current={active === 'all' ? 'true' : undefined} onClick={() => scrollTo('all')} className={categoryPillClass(active === 'all')}><span className={`flex h-9 items-center rounded-full px-4 ${active === 'all' ? 'bg-brand-soft text-action' : ''}`}>{t(strings.all)}</span></button>
+              </div>
+              <div ref={categoryTabsRef} data-horizontal-scroll={verticalCategories ? undefined : true} data-more-categories={!verticalCategories && moreCategories ? true : undefined} onScroll={verticalCategories ? undefined : (event) => updateCategoryOverflow(event.currentTarget)} className="menu-navigation-tabs no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+                {categories.map((c) => (
+                  <button key={c.id} type="button" aria-pressed={active === c.id} aria-current={active === c.id ? 'true' : undefined} onClick={() => scrollTo(c.id)} className={categoryPillClass(active === c.id)}><span className={`flex h-9 items-center rounded-full px-4 ${active === c.id ? 'bg-brand-soft text-action' : ''}`}>{t(c.name)}</span></button>
+                ))}
+              </div>
+            </nav>
+
+            <div className="menu-sections">
               {categories.map((c) => (
-                <button key={c.id} type="button" aria-pressed={active === c.id} aria-current={active === c.id ? 'true' : undefined} onClick={() => scrollTo(c.id)} className={categoryPillClass(active === c.id)}><span className={`flex h-9 items-center rounded-full px-4 ${active === c.id ? 'bg-brand-soft text-action' : ''}`}>{t(c.name)}</span></button>
+                <section
+                  key={c.id}
+                  ref={(el) => {
+                    sectionRefs.current[c.id] = el
+                  }}
+                  className="menu-category px-gutter max-[359px]:px-3"
+                >
+                  <h2 className="mb-3 text-title font-semibold">{t(c.name)}</h2>
+                  <div className="menu-dishes grid grid-cols-2 gap-3 max-[359px]:gap-x-2">
+                    {dishes
+                      .filter((d) => d.category === c.id)
+                      .map((d, index) => (
+                        <DishCard
+                          key={d.id}
+                          dish={d}
+                          lang={lang}
+                          qty={qtyByDish[d.id] ?? 0}
+                          ordered={orderedByDish[d.id] ?? 0}
+                          template={menuTemplate}
+                          compactBadges={verticalCategories && menuTemplate === 'grid'}
+                          prioritizeImage={c.id === categories[0].id && index < 2}
+                          onOpen={() => setPage({ dish: d })}
+                          onAdd={() => quickAdd(d)}
+                        />
+                      ))}
+                  </div>
+                </section>
               ))}
             </div>
-          </nav>
-
-          {categories.map((c) => (
-            <section
-              key={c.id}
-              ref={(el) => {
-                sectionRefs.current[c.id] = el
-              }}
-              className="menu-category px-gutter max-[359px]:px-3"
-            >
-              <h2 className="mb-3 text-title font-semibold">{t(c.name)}</h2>
-              <div className="grid grid-cols-2 gap-3 max-[359px]:gap-x-2">
-                {dishes
-                  .filter((d) => d.category === c.id)
-                  .map((d, index) => (
-                    <DishCard
-                      key={d.id}
-                      dish={d}
-                      lang={lang}
-                      qty={qtyByDish[d.id] ?? 0}
-                      ordered={orderedByDish[d.id] ?? 0}
-                      prioritizeImage={c.id === categories[0].id && index < 2}
-                      onOpen={() => setPage({ dish: d })}
-                      onAdd={() => quickAdd(d)}
-                    />
-                  ))}
-              </div>
-            </section>
-          ))}
+          </div>
         </div>}
 
         {entered && !page && count > 0 && (
-          <CartBar count={count} total={quote.total / 100} lang={lang} bump={bump} onOpen={() => setSheet('cart')} onCheckout={() => openConfirmation(false)} />
+          <CartBar count={count} total={quote.total / 100} lang={lang} bump={bump} feedback={cartFeedback} onOpen={() => setSheet('cart')} onCheckout={() => openConfirmation(false)} />
         )}
 
         {/* ---------- Full-screen pages ---------- */}
@@ -552,7 +608,7 @@ export default function App() {
               } else addLine(page.dish, opts, note, qty)
               setPage(null)
               if (page.returnTo === 'cart') setSheet('cart')
-              setToast({ message: originalKey ? ({ en: 'Changes saved', hk: '已儲存修改', zh: '已保存修改' }[lang]) : t(strings.added) })
+              setToast({ message: originalKey ? ({ en: 'Changes saved', hk: '已儲存修改', zh: '已保存修改' }[lang]) : t(strings.added), inCart: !originalKey })
             }}
           />
         )}
@@ -868,7 +924,7 @@ export default function App() {
         )}
 
         <span role="status" className="sr-only">{checkingPayment ? t(strings.paymentChecking) : toast?.message}</span>
-        {toast && (
+        {toast && !cartFeedback && (
           <div className="animate-pop pointer-events-none absolute inset-x-0 top-14 z-[60] flex justify-center px-5">
             <div aria-hidden="true" className="flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-callout text-white shadow-float">
               {toast.tone !== 'neutral' && (

@@ -194,6 +194,190 @@
 .menu-category { margin-top: var(--spacing-stack); }
 .menu-category + .menu-category { margin-top: var(--spacing-section); }
 
+.menu-scroll {
+  --menu-end-space: 24px;
+  padding-bottom: var(--menu-end-space);
+}
+.menu-scroll-with-cart { --menu-end-space: 112px; }
+.menu-scroll-vertical { padding-bottom: 0; }
+
+/* Menu templates share card content, with layout-specific spacing and controls. */
+.menu-display,
+.menu-sections,
+.menu-dish-detail { display: contents; }
+
+.menu-navigation-tabs[data-more-categories] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+}
+.menu-navigation-tabs[data-horizontal-scroll] {
+  scroll-padding-inline-end: 24px;
+  padding-inline-end: 24px;
+}
+
+.menu-display:is([data-menu-template="list"], [data-menu-template="large"]) .menu-dishes {
+  grid-template-columns: minmax(0, 1fr);
+}
+.menu-display[data-menu-template="grid"] .menu-dish-card {
+  container: menu-card / inline-size;
+}
+.menu-dish-media { container: menu-photo / inline-size; }
+@container menu-photo (width < 120px) {
+  .menu-dish-feature-tag > span {
+    min-height: 16px;
+    column-gap: 2px;
+    padding-inline: 4px;
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .menu-dish-feature-tag img {
+    width: 10px;
+    height: 10px;
+  }
+}
+@container menu-card (width < 152px) {
+  .menu-dish-name,
+  .menu-dish-actions { padding-inline: 6px; }
+  .menu-dish-price { font-size: var(--text-body); }
+  .menu-dish-name h3 { font-size: var(--text-callout); line-height: 1.4; }
+  .menu-dish-actions .add-control-qty { min-width: 22px; padding-inline: 3px; }
+}
+@container menu-card (width < 125px) {
+  .menu-dish-name { padding-inline: 5px; }
+  .menu-dish-name h3 { font-size: 13px; }
+  .menu-dish-actions .add-control-options { width: 32px; padding-inline: 0; }
+  .menu-dish-actions .add-control-options-label { display: none; }
+  .menu-dish-actions .add-control-options-icon { display: block; }
+}
+
+.menu-display[data-menu-template="list"] .menu-dish-card {
+  display: grid;
+  grid-template-columns: clamp(68px, 21vw, 84px) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  padding-block: 5px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+}
+.menu-display[data-menu-template="list"] .menu-dish-media {
+  align-self: start;
+  border-radius: var(--radius-md);
+}
+.menu-display[data-menu-template="list"] .menu-dish-image { aspect-ratio: 1; }
+.menu-display[data-menu-template="list"] .menu-dish-badges {
+  inset-inline: 3px;
+  top: 3px;
+  gap: 2px;
+}
+.menu-display[data-menu-template="list"] .menu-dish-detail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.menu-display[data-menu-template="list"] .menu-dish-name {
+  min-height: 0;
+  margin: 0;
+  padding-inline: 0;
+}
+.menu-display[data-menu-template="list"] .menu-dish-actions {
+  min-height: 44px;
+  padding: 0;
+}
+
+.menu-display[data-menu-template="large"] .menu-dish-image {
+  aspect-ratio: 16 / 9;
+  max-height: clamp(102px, calc(100dvh - 470px), 208px);
+}
+.menu-display[data-menu-template="large"] .menu-dish-name {
+  min-height: 0;
+  margin-top: 8px;
+}
+.menu-display[data-menu-template="large"] .menu-dish-actions {
+  min-height: 44px;
+  padding-bottom: 2px;
+}
+
+.menu-display[data-category-layout="vertical"] {
+  --menu-rail-width: clamp(72px, 21%, 82px);
+  --menu-search-height: 61px;
+  --menu-status-height: 0px;
+  --menu-rail-top: calc(var(--menu-status-height) + var(--menu-search-height));
+  display: grid;
+  grid-template-columns: var(--menu-rail-width) minmax(0, 1fr);
+  align-items: start;
+  margin-top: 4px;
+  background: linear-gradient(to right, var(--color-tile) var(--menu-rail-width), #fff var(--menu-rail-width));
+}
+@media (min-width: 640px) and (pointer: fine) {
+  .menu-display[data-category-layout="vertical"] { --menu-status-height: 44px; }
+}
+.menu-search-row {
+  grid-column: 1 / -1;
+  height: var(--menu-search-height);
+  padding-block: 4px 12px;
+  border-bottom: 1px solid var(--color-line);
+}
+/* End spacing lives inside the two-column background so the rail reaches the bottom. */
+.menu-display[data-category-layout="vertical"] .menu-sections {
+  display: block;
+  padding-bottom: var(--menu-end-space);
+}
+.menu-display[data-category-layout="vertical"] .menu-navigation {
+  top: var(--menu-rail-top);
+  flex-direction: column;
+  align-items: stretch;
+  max-height: calc(100dvh - var(--menu-rail-top) - 88px);
+  margin: 0;
+  padding: 4px 0;
+  background: var(--color-tile);
+}
+.menu-display[data-category-layout="vertical"] .menu-navigation-start {
+  flex-direction: column;
+  align-items: stretch;
+  background: transparent;
+  padding-right: 0;
+}
+.menu-display[data-category-layout="vertical"] .menu-navigation-tabs {
+  position: relative;
+  flex-direction: column;
+  align-items: stretch;
+  overscroll-behavior-y: contain;
+  overflow: hidden auto;
+  gap: 0;
+}
+.menu-display[data-category-layout="vertical"] .menu-navigation button[aria-pressed] {
+  height: auto;
+  min-height: 44px;
+  padding-inline: 4px;
+}
+.menu-display[data-category-layout="vertical"] .menu-navigation button[aria-pressed] > span {
+  width: 100%;
+  height: auto;
+  min-height: 38px;
+  justify-content: center;
+  padding: 4px 2px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-callout);
+  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.menu-display[data-category-layout="vertical"] .menu-category { padding-inline: 10px; }
+.menu-display[data-category-layout="vertical"][data-menu-template="list"] .menu-dish-card {
+  column-gap: 8px;
+  grid-template-columns: 66px minmax(0, 1fr);
+}
+/* English food tags need a little more room on the square thumbnails. */
+.menu-display[data-menu-template="list"]:lang(en) .menu-dish-card {
+  grid-template-columns: 88px minmax(0, 1fr);
+}
+.menu-display[data-category-layout="vertical"][data-menu-template="grid"] .menu-dishes { gap: 8px; }
+.menu-display[data-category-layout="vertical"][data-menu-template="grid"] .menu-dish-badges {
+  inset-inline: 4px;
+  top: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-slide, .animate-sheet, .animate-fade, .animate-pop { animation: none; }
 }

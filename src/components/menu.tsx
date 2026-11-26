@@ -39,6 +39,8 @@ export function DishCard({
   lang,
   qty,
   ordered,
+  template,
+  compactBadges,
   prioritizeImage,
   onOpen,
   onAdd,
@@ -47,52 +49,60 @@ export function DishCard({
   lang: Lang
   qty: number
   ordered: number
+  template: 'list' | 'grid' | 'large'
+  compactBadges: boolean
   prioritizeImage: boolean
   onOpen: () => void
   onAdd: () => void
 }) {
+  const compactTags = template === 'list' || compactBadges
   return (
     // Cards share a row height. Long names can wrap without displacing the price row.
-    <article className={`flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white ${dish.soldOut ? 'opacity-60' : ''}`}>
-      <button onClick={onOpen} aria-label={`${uiText(lang, 'view_details_fe8b1')} · ${dish.name[lang]}`} className="relative block overflow-hidden">
+    <article className={`menu-dish-card flex h-full min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white ${dish.soldOut ? 'opacity-60' : ''}`}>
+      <button onClick={onOpen} aria-label={`${uiText(lang, 'view_details_fe8b1')} · ${dish.name[lang]}`} className="menu-dish-media relative block overflow-hidden">
         <DishImage
           src={dish.image}
           alt={dish.name[lang]}
+          fullSize={template === 'large'}
           defer={!prioritizeImage}
           loading={prioritizeImage ? 'eager' : 'lazy'}
           fetchPriority={prioritizeImage ? 'high' : 'low'}
-          className="aspect-[4/3] w-full transition duration-500 hover:scale-105"
+          className="menu-dish-image aspect-[4/3] w-full transition duration-500 hover:scale-105"
         />
-        <span className="absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-1">
-          {ordered > 0 && <Tag tone="brand">{strings.ordered[lang]} {ordered}</Tag>}
-          {dish.tag && !dish.soldOut && <span className="ml-auto"><DishTag kind={dish.tag} lang={lang} /></span>}
-        </span>
+        {(ordered > 0 || (dish.tag && !dish.soldOut)) && (
+          <span className="menu-dish-badges absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-1">
+            {ordered > 0 && <Tag tone="brand" compact={compactTags}>{strings.ordered[lang]} {ordered}</Tag>}
+            {dish.tag && !dish.soldOut && <span className="menu-dish-feature-tag ml-auto"><DishTag kind={dish.tag} lang={lang} compact={compactTags} /></span>}
+          </span>
+        )}
         {dish.soldOut && (
           <span className="absolute inset-0 flex items-center justify-center bg-white/40">
             <Tag tone="overlay">{strings.soldOut[lang]}</Tag>
           </span>
         )}
       </button>
-      <button onClick={onOpen} className="mt-3 flex min-h-11 flex-col items-start px-3 text-left">
-        <h3 className="break-words text-body font-semibold">{dish.name[lang]}</h3>
-        {dish.unit.en === '2 pcs' && <span className="mt-0.5 text-callout text-ink-2">{dish.unit[lang]}</span>}
-      </button>
-      <div className="mt-auto flex min-h-12 flex-wrap items-center gap-x-0.5 px-3 pb-2">
-        <p className="flex min-w-max flex-1 items-baseline gap-0.5 text-headline font-semibold whitespace-nowrap">
-          <Price value={dish.price} className="shrink-0" />
-        </p>
-        {!dish.soldOut && <DishAddButton dish={dish} lang={lang} qty={qty} onClick={onAdd} />}
+      <div className="menu-dish-detail">
+        <button onClick={onOpen} className="menu-dish-name mt-3 flex min-h-11 flex-col items-start px-3 text-left">
+          <h3 className="break-words text-body font-semibold">{dish.name[lang]}</h3>
+          {dish.unit.en === '2 pcs' && <span className="mt-0.5 text-callout text-ink-2">{dish.unit[lang]}</span>}
+        </button>
+        <div className="menu-dish-actions mt-auto flex min-h-12 items-center gap-x-0.5 px-3 pb-2">
+          <p className="menu-dish-price flex min-w-max flex-1 items-baseline gap-0.5 text-headline font-semibold whitespace-nowrap">
+            <Price value={dish.price} className="shrink-0" />
+          </p>
+          {!dish.soldOut && <DishAddButton dish={dish} lang={lang} qty={qty} onClick={onAdd} compactOptions={template === 'grid'} />}
+        </div>
       </div>
     </article>
   )
 }
 
-function DishAddButton({ dish, lang, qty, onClick }: { dish: Dish; lang: Lang; qty: number; onClick: () => void }) {
+function DishAddButton({ dish, lang, qty, onClick, compactOptions }: { dish: Dish; lang: Lang; qty: number; onClick: () => void; compactOptions?: boolean }) {
   const customizable = isCustomizable(dish)
   const action = customizable ? `${strings.customize[lang]} · ${dish.name[lang]}` : strings.add[lang]
   const label = qty > 0 ? `${action} · ${strings.selected[lang]} ${qty}` : action
   const optionsLabel = customizable ? { en: 'Options', zh: '选规格', hk: '選規格' }[lang] : undefined
-  return <AddButton onClick={onClick} label={label} qty={qty} optionsLabel={optionsLabel} />
+  return <AddButton onClick={onClick} label={label} qty={qty} optionsLabel={optionsLabel} compactOptions={compactOptions} />
 }
 
 type DishSelections = Record<string, string[]>
@@ -373,7 +383,7 @@ export function CartRow({ line, lang, amount, children, onEdit }: { line: CartLi
 }
 
 /** Floating cart bar: count + total + solid brand checkout button. */
-export function CartBar({ count, total, lang, bump, onOpen, onCheckout }: { count: number; total: number; lang: Lang; bump: number; onOpen: () => void; onCheckout: () => void }) {
+export function CartBar({ count, total, lang, bump, feedback, onOpen, onCheckout }: { count: number; total: number; lang: Lang; bump: number; feedback?: string; onOpen: () => void; onCheckout: () => void }) {
   return (
     <div className="animate-pop absolute inset-x-5 bottom-[max(20px,env(safe-area-inset-bottom))] z-30">
       <div className="glass-bar flex items-center gap-3 rounded-full border border-white/75 p-2 text-ink shadow-float">
@@ -388,6 +398,7 @@ export function CartBar({ count, total, lang, bump, onOpen, onCheckout }: { coun
           <span className="min-w-0">
             <span className="sr-only">{uiText(lang, 'total_7f9d9')}</span>
             <Price value={total} className="block truncate text-headline font-semibold" />
+            {feedback && <span aria-hidden="true" className="menu-cart-feedback block text-caption font-medium leading-tight text-success">{feedback}</span>}
           </span>
         </button>
         <Button size="md" onClick={onCheckout} className="px-6">
