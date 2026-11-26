@@ -10,7 +10,7 @@ import { uiText } from '../i18n'
  *   sizes    icon buttons 44 · quantity circles 32 · list thumb 56
  */
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
-import { AlertCircle, Check, ChevronLeft, Info, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
+import { AlertCircle, Check, ChevronLeft, Info, Minus, Plus, SlidersHorizontal, ShoppingBag, Trash2, X } from 'lucide-react'
 import { useBackSwipe, useSheetSwipe } from '../gestures'
 import { useExitMotion } from '../exit-motion'
 import { dishes, type Lang } from '../data'
@@ -227,7 +227,7 @@ export function Stepper({ qty, onMinus, onPlus, min = 0 }: { qty: number; onMinu
 }
 
 /** Menu add control with the current cart count on the same pill. */
-export function AddButton({ onClick, label, qty, optionsLabel }: { onClick: () => void; label: string; qty: number; optionsLabel?: string }) {
+export function AddButton({ onClick, label, qty, optionsLabel, compactOptions }: { onClick: () => void; label: string; qty: number; optionsLabel?: string; compactOptions?: boolean }) {
   return (
     <button
       type="button"
@@ -236,9 +236,11 @@ export function AddButton({ onClick, label, qty, optionsLabel }: { onClick: () =
       className="group ml-auto flex h-11 min-w-11 shrink-0 items-center justify-end rounded-full"
     >
       <span aria-hidden="true" className="add-control-pill inline-flex h-8 items-center rounded-full bg-brand-soft transition-transform group-active:scale-95">
-        {qty > 0 && <span className="min-w-7 px-1.5 text-center text-caption font-semibold text-action tabular-nums">×{qty}</span>}
-        <span className={`flex h-8 items-center justify-center rounded-full bg-action text-caption font-semibold whitespace-nowrap text-white transition-colors group-active:bg-action-pressed ${optionsLabel ? 'px-3 max-[359px]:px-2' : 'size-8'}`}>
-          {optionsLabel ?? <Plus className="size-4" strokeWidth={2.5} />}
+        {qty > 0 && <span className="add-control-qty min-w-7 px-1.5 text-center text-caption font-semibold text-action tabular-nums">×{qty}</span>}
+        <span className={`flex h-8 items-center justify-center rounded-full bg-action text-caption font-semibold whitespace-nowrap text-white transition-colors group-active:bg-action-pressed ${optionsLabel ? `px-3 max-[359px]:px-2 ${compactOptions ? 'add-control-options' : ''}` : 'size-8'}`}>
+          {optionsLabel && compactOptions ? (
+            <><span className="add-control-options-label">{optionsLabel}</span><SlidersHorizontal className="add-control-options-icon hidden size-4" /></>
+          ) : optionsLabel ?? <Plus className="size-4" strokeWidth={2.5} />}
         </span>
       </span>
     </button>
