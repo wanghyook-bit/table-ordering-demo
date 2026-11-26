@@ -53,7 +53,7 @@ export function PaymentFlow({
   onCheckingChange,
   onUnconfirmed,
   resultSheet,
-  expiresAt, onExpired,
+  expiresAt, onExpired, onCancelPayment,
 }: {
   balance: number
   tipsEnabled: boolean
@@ -70,6 +70,7 @@ export function PaymentFlow({
   resultSheet?: ReactNode
   expiresAt?: number | null
   onExpired?: () => void
+  onCancelPayment?: () => void
 }) {
   const t = (s: L10n) => s[lang]
   const [methodId, setMethodId] = useState('apple')
@@ -115,6 +116,10 @@ export function PaymentFlow({
   })
 
   const receiveResult = (attempt: Attempt, result: Result) => {
+    if (result === 'cancelled' && onCancelPayment) {
+      onCancelPayment()
+      return
+    }
     if (direct) {
       // The table flow only receives a success notification from the gateway.
       result = result === 'success' ? 'success' : 'unknown'
@@ -299,13 +304,13 @@ export function PaymentFlow({
   )
 }
 
-export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, cancelledOrder = false }: {
+export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, onReturnToCart }: {
   result: TablePaymentResult
   lang: Lang
   orderNo: number
   onClose?: () => void
   onRetry?: () => void
-  cancelledOrder?: boolean
+  onReturnToCart?: () => void
 }) {
   const t = (s: L10n) => s[lang]
   const success = result.kind === 'success'
@@ -319,8 +324,8 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, ca
     <BottomSheet
       title={<span role="status" className="flex items-center gap-3">{icon}{title}</span>}
       onClose={onClose}
-      footer={onClose && <Button autoFocus className="w-full" onClick={onRetry ?? onClose}>
-        {result.kind === 'expired' || cancelledOrder ? t(L('Order again', '重新點餐', '重新点餐')) : onRetry ? t(L('Retry payment', '重新支付', '重新支付')) : t(strings.finish)}
+      footer={onClose && <Button autoFocus className="w-full" onClick={onReturnToCart ?? onRetry ?? onClose}>
+        {onReturnToCart ? t(L('Back to cart', '返回購物車', '返回购物车')) : onRetry ? t(L('Retry payment', '重新支付', '重新支付')) : t(strings.finish)}
       </Button>}
     >
       {success ? (
@@ -328,10 +333,8 @@ export function PaymentResultSheet({ result, lang, orderNo, onClose, onRetry, ca
           <Row k={t(L('Order number', '訂單號', '订单号'))} v={`#${orderNo}`} />
           <Row strong k={t(L('Paid this time', '本次付款', '本次付款'))} v={money(result.amount)} />
         </dl>
-      ) : cancelledOrder ? (
-        <p className="py-2 text-callout text-ink-2">{t(L('Payment and the pending order were cancelled. Please order again.', '付款及待支付訂單已取消，請重新點餐。', '付款及待支付订单已取消，请重新点餐。'))}</p>
-      ) : result.kind === 'expired' ? (
-        <p className="py-2 text-callout text-ink-2">{t(L('Payment expired. Your order was cancelled; please order again.', '支付已超時，訂單已取消，請重新下單。', '支付已超时，订单已取消，请重新下单。'))}</p>
+      ) : onReturnToCart ? (
+        <p className="py-2 text-callout text-ink-2">{t(L('Your items are still in the cart. Go back to review or edit them.', '餐品已保留在購物車，可返回查看或修改。', '菜品已保留在购物车，可返回查看或修改。'))}</p>
       ) : (
         <p className="py-2 text-callout text-ink-2">
           {t(L('Your selections are saved.', '已保留本次點餐內容。', '已保留本次点餐内容。'))}
@@ -365,12 +368,13 @@ function ThirdPartyPage({
     returnResult.current ??= result
     dismiss()
   }
-  const swipe = useBackSwipe(() => returnToOrder('cancelled'))
+  const leave = () => returnToOrder(showCancelPayment ? 'unknown' : 'cancelled')
+  const swipe = useBackSwipe(leave)
   const paymentTime = usePaymentCountdown(expiresAt)
   return (
     <div {...swipe} ref={panel} className={`${showCancelPayment ? 'animate-slide' : 'animate-sheet'} absolute inset-0 z-[52] flex touch-pan-y flex-col bg-tile`}>
       <header className="flex items-center justify-between px-5 pt-12 pb-3">
-        <IconButton variant="plain" label={t(strings.providerCancel)} onClick={() => returnToOrder('cancelled')}>
+        <IconButton variant="plain" label={t(strings.providerCancel)} onClick={leave}>
           <X className="size-5" />
         </IconButton>
         <span className="text-body font-semibold">{t(strings.providerDemo)}</span>
@@ -389,7 +393,7 @@ function ThirdPartyPage({
               {uiText(lang, 'cancel_payment_2f54b')}
             </Button>
           )}
-          <Button variant="dark" onClick={() => onReturn('success')} className="min-w-0 flex-1 px-3! max-[359px]:px-2! max-[359px]:text-callout">
+          <Button variant="dark" onClick={() => { if (!returnResult.current) onReturn('success') }} className="min-w-0 flex-1 px-3! max-[359px]:px-2! max-[359px]:text-callout">
             {t(strings.providerSuccess)}
           </Button>
         </div>

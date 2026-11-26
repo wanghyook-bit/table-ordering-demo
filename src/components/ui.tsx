@@ -226,17 +226,20 @@ export function Stepper({ qty, onMinus, onPlus, min = 0 }: { qty: number; onMinu
   )
 }
 
-/** Same footprint as the stepper's plus, solid to signal the primary action. */
-export function AddButton({ onClick, label, qty }: { onClick: () => void; label: string; qty: number }) {
+/** Menu add control with the current cart count on the same pill. */
+export function AddButton({ onClick, label, qty, optionsLabel }: { onClick: () => void; label: string; qty: number; optionsLabel?: string }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       aria-label={label}
-      className="group relative flex h-11 min-w-11 shrink-0 items-center justify-end rounded-full"
+      className="group ml-auto flex h-11 min-w-11 shrink-0 items-center justify-end rounded-full"
     >
-      {qty > 0 && <span className="-mr-2 flex h-7 items-center rounded-full bg-brand-soft pr-2.5 pl-2 text-caption font-semibold text-action tabular-nums">×{qty}</span>}
-      <span className="relative grid size-8 place-items-center rounded-full bg-action text-white transition group-active:scale-95 group-active:bg-action-pressed">
-        <Plus className="size-4" strokeWidth={2.5} />
+      <span aria-hidden="true" className="add-control-pill inline-flex h-8 items-center rounded-full bg-brand-soft transition-transform group-active:scale-95">
+        {qty > 0 && <span className="min-w-7 px-1.5 text-center text-caption font-semibold text-action tabular-nums">×{qty}</span>}
+        <span className={`flex h-8 items-center justify-center rounded-full bg-action text-caption font-semibold whitespace-nowrap text-white transition-colors group-active:bg-action-pressed ${optionsLabel ? 'px-3 max-[359px]:px-2' : 'size-8'}`}>
+          {optionsLabel ?? <Plus className="size-4" strokeWidth={2.5} />}
+        </span>
       </span>
     </button>
   )

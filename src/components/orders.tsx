@@ -93,13 +93,16 @@ export const itemCount = (lines: CartLine[]) => lines.reduce((sum, line) => sum 
 export const countLabel = (count: number, lang: Lang) => (lang === 'en' ? `${count} ${count === 1 ? 'item' : 'items'}` : `共 ${count} 件`)
 
 /** Read-only item rows (thumb · name · per-dish status · options · price · qty) shared by confirm, order detail and payment. */
-export function ItemList({ lines, lang, amounts, status }: { lines: CartLine[]; lang: Lang; amounts: Record<string, number>; status?: 'pending' | 'ordered' }) {
+export function ItemList({ lines, lang, amounts, status, separateItemNote = false }: { lines: CartLine[]; lang: Lang; amounts: Record<string, number>; status?: 'pending' | 'ordered'; separateItemNote?: boolean }) {
   return <ul className="confirm-items">{lines.map((line) => {
-    const options = optsLabel(line.opts, line.note, lang)
+    const options = optsLabel(line.opts, separateItemNote ? '' : line.note, lang)
+    const note = separateItemNote ? line.note.trim() : ''
     return <li key={line.key} className="confirm-item">
       <DishImage src={line.dish.image} dishId={line.dish.id} alt={line.dish.name[lang]} className="confirm-item-image" />
       <div className="confirm-item-info"><div className="confirm-item-title">{status && <span className={`confirm-status rounded-full ${status}`}>{status === 'ordered' ? (uiText(lang, 'ordered_fc521')) : (uiText(lang, 'not_ordered_95579'))}</span>}<strong>{line.dish.name[lang]}</strong></div>
-        {options && <p className="confirm-options">{options}</p>}<div className="confirm-item-bottom"><span>×{line.qty}</span><strong>{money((amounts[line.key] ?? 0) / 100)}</strong></div></div>
+        {options && <p className="confirm-options">{options}</p>}
+        {note && <p className="confirm-options whitespace-pre-wrap break-words">{uiText(lang, 'item_note')} · {note}</p>}
+        <div className="confirm-item-bottom"><span>×{line.qty}</span><strong>{money((amounts[line.key] ?? 0) / 100)}</strong></div></div>
     </li>
   })}</ul>
 }
@@ -112,7 +115,7 @@ export function RoundGroup({ index, lines, lang, amounts, status, showRound = tr
   return (
     <div>
       {showRound && <h3 className="mb-2 text-callout font-semibold text-ink">{lang === 'en' ? `Round ${index}` : lang === 'zh' ? `第 ${index} 轮` : `第 ${index} 輪`}</h3>}
-      <ItemList lines={lines} lang={lang} amounts={amounts} status={status} />
+      <ItemList lines={lines} lang={lang} amounts={amounts} status={status} separateItemNote />
     </div>
   )
 }
@@ -123,6 +126,7 @@ export function OrderDetail({
   payments,
   animateSuccess,
   lastPaidAmount,
+  showTableStatus,
   mode,
   orderNo,
   pickup,
@@ -144,6 +148,7 @@ export function OrderDetail({
   payments: PaymentRecord[]
   animateSuccess: boolean
   lastPaidAmount: number | null
+  showTableStatus: boolean
   mode: Mode
   orderNo: number
   pickup: string
@@ -196,14 +201,14 @@ export function OrderDetail({
         {(showPay || allPaid) && <Button onClick={onPay} disabled={allPaid || checkingPayment} aria-label={checkingPayment ? t(strings.paymentChecking) : undefined} className="flex-1">{t(checkingPayment ? strings.paymentCheckingShort : strings.pay)}</Button>}
       </div>
     )}>
-      <Section>
+      {showTableStatus && <Section>
         <div className="order-success order-status-illustration" data-tone={allPaid ? undefined : tone}>
           {allPaid
             ? <img src={`${import.meta.env.BASE_URL}confirm-assets/payment-success.webp`} width={280} height={150} alt="" />
             : <div className="order-status-art" aria-hidden="true"><span className="order-status-orbit" /><span className="order-status-circle"><StatusIcon size={44} strokeWidth={2.5} /></span></div>}
           <strong>{allPaid ? uiText(lang, 'payment_successful_e6774') : label}</strong>{description && <span className="order-status-description">{description}</span>}
         </div>
-      </Section>
+      </Section>}
       <Section
         title={uiText(lang, 'items_2f38f')}
         trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(rounds.reduce((sum, round) => sum + itemCount(round.lines), 0), lang)}</span>}
@@ -231,7 +236,7 @@ export function OrderDetail({
           <Row k={uiText(lang, 'order_number_6b17e')} v={<CopyOrderNumber key={orderNo} orderNo={orderNo} lang={lang} onCopied={onCopyOrderNumber} />} />
           {orderedAt && <Row k={uiText(lang, 'order_time_38773')} v={<time dateTime={rounds[0]?.createdAt}>{orderedAt}</time>} />}
           {awaitingSettlement && <Row k={uiText(lang, 'order_status')} v={uiText(lang, 'awaiting_store_settlement')} />}
-          {orderNote && <Row k={uiText(lang, 'order_note_756d0')} v={<span className="whitespace-pre-wrap font-semibold">{orderNote}</span>} />}
+          {orderNote.trim() && <Row k={uiText(lang, 'order_note_756d0')} v={<span className="whitespace-pre-wrap font-semibold">{orderNote}</span>} />}
         </dl>
       </Section>
       {historyOpen && (
@@ -372,6 +377,14 @@ export function OrderDetail({
               )}
             </Section>
           ) : null}
+
+          {orderNote.trim() && (
+            <Section title={uiText(lang, 'order_information_fd7fd')}>
+              <dl className="amount-rows order-information">
+                <Row k={uiText(lang, 'order_note_756d0')} v={<span className="whitespace-pre-wrap break-words font-semibold">{orderNote}</span>} />
+              </dl>
+            </Section>
+          )}
 
           {detailsOpen && (
             <BottomSheet title={t(strings.receiptBreakdown)} onClose={() => setDetailsOpen(false)}>
