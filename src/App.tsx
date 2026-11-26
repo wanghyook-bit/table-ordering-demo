@@ -26,7 +26,6 @@ import { ConfirmPage, hasValidOrderContact, type Contact } from './components/co
 import { PaymentFlow, PaymentResultSheet, type TablePaymentResult } from './components/pay'
 import { MemberPage, type Member } from './components/member'
 import { MyOrders } from './components/my-orders'
-import { TableScanSheet } from './components/table-scan'
 import { useBackSwipe, useBrowserBack } from './gestures'
 
 // One table session = one order number; rounds are first order + add-ons
@@ -37,6 +36,7 @@ const CATEGORY_SCROLL_INSET = 12
 const entry = new URLSearchParams(window.location.search)
 const entryTable = entry.get('code') === 'table' ? entry.get('table')?.trim() || 'A08' : null
 const tableTrial = !!entryTable && entry.get('trial') === '1'
+const memberEntryEnabled = entry.get('member') !== '0'
 const storeCode = entry.get('code') === 'store'
 const demo = entry.get('demo') === 'fees' || (entry.get('demo') === 'postpay' && !entryTable)
 const manualAcceptance = entry.get('accept') === 'manual'
@@ -77,7 +77,7 @@ function demoCart(): CartLine[] {
 
 type OrderRequest = { status: 'waiting' | 'cancelled'; round: Round }
 
-type Sheet = null | 'language' | 'cart' | 'categories' | 'leave-payment' | 'switch-table'
+type Sheet = null | 'language' | 'cart' | 'categories' | 'leave-payment'
 type Page = null | 'search' | 'confirm' | 'orders' | 'my-orders' | 'pay' | 'member' | { dish: Dish; returnTo?: 'search' | 'cart'; editingKey?: string }
 
 export default function App() {
@@ -95,10 +95,8 @@ export default function App() {
   useBrowserBack()
   // Hong Kong default: Traditional Chinese
   const [savedSession] = useState(restoreSession)
-  const [table, setTable] = useState(() => {
-    const savedTable = savedSession?.table
-    return entryTable && (typeof savedTable === 'string' && savedTable.trim() ? savedTable : entryTable)
-  })
+  const savedTable = savedSession?.table
+  const table = entryTable && (typeof savedTable === 'string' && savedTable.trim() ? savedTable : entryTable)
   const [lang, setLang] = useState<Lang>(() => ['en', 'hk', 'zh'].includes(savedSession?.lang) ? savedSession.lang : (['en', 'hk', 'zh'].includes(localStorage.getItem('ordering-language') || '') ? localStorage.getItem('ordering-language') as Lang : 'hk'))
   const t = (s: L10n) => s[lang]
   const langAttr = LANGS.find((l) => l.code === lang)!.attr
@@ -120,7 +118,7 @@ export default function App() {
   const [animateOrderSuccess, setAnimateOrderSuccess] = useState(false)
   const [lastPaidAmount, setLastPaidAmount] = useState<number | null>(null)
   const [contact, setContact] = useState<Contact>(savedSession?.contact ?? { name: '', phone: '' })
-  const [guests, setGuests] = useState(savedSession?.guests ?? 1)
+  const guests = Number.isInteger(savedSession?.guests) && savedSession.guests > 0 ? savedSession.guests : 1
   const [orderNote, setOrderNote] = useState<string>(savedSession?.orderNote ?? '')
   const [draftOrderNote, setDraftOrderNote] = useState<string | null>(savedSession?.draftOrderNote ?? null)
   const [settled, setSettled] = useState(savedSession?.settled ?? false)
@@ -132,7 +130,8 @@ export default function App() {
   const [sheet, setSheet] = useState<Sheet>(null)
   const [page, setPage] = useState<Page>(savedSession?.paymentResult ? (savedSession.pendingRound && savedSession.paymentResult.kind !== 'success' ? 'confirm' : 'orders') : savedSession?.tablePaymentOpen ? 'pay' : savedSession?.pendingRound ? 'confirm' : savedSession?.request || savedSession?.rounds?.length ? 'orders' : null)
   const [toast, setToast] = useState<{ message: string; tone?: 'success' | 'neutral' } | null>(null)
-  const [detailFromList, setDetailFromList] = useState(false)
+  const [detailFromList, setDetailFromList] = useState(savedSession?.detailFromList === true)
+  const confirmBackToCart = useRef(false)
   const [active, setActive] = useState('all')
   const [scrollY, setScrollY] = useState(0)
   const [categoryPinned, setCategoryPinned] = useState(false)
@@ -159,9 +158,9 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    sessionStore.setItem(sessionKey, JSON.stringify({ entered, mode, table, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, draftOrderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt, lang }))
+    sessionStore.setItem(sessionKey, JSON.stringify({ entered, mode, table, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, draftOrderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt, detailFromList, lang }))
     if (paymentResult) sessionStore.removeItem(paymentSessionKey)
-  }, [entered, mode, table, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, draftOrderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt, lang])
+  }, [entered, mode, table, lines, coupon, rounds, payments, request, contact, guests, settled, orderNote, draftOrderNote, pendingRound, paymentResult, tablePaymentOpen, prepayExpiresAt, detailFromList, lang])
 
   useEffect(() => {
     if (!pendingRound || !prepayExpiresAt || (page === 'pay' && !paymentResult) || paymentResult?.kind === 'expired' || paymentResult?.kind === 'success' || paymentResult?.kind === 'cancelled') return
@@ -189,7 +188,6 @@ export default function App() {
   // Dishes already sent to the kitchen — marked on the menu when ordering more
   const orderedByDish = useMemo(() => tally(rounds.flatMap((r) => r.lines)), [rounds])
   const bill = calculateBill(rounds, payments)
-  const canSwitchTable = !pendingRound && !request && rounds.length === 0
 
   const addLine = (dish: Dish, opts: string[], note: string, qty: number) => {
     const key = lineKey(dish.id, opts, note)
@@ -279,6 +277,20 @@ export default function App() {
     setDraftOrderNote(null)
   }
 
+  const openConfirmation = (fromCart: boolean) => {
+    if (!lines.length) return
+    setSheet(null)
+    if (request?.status === 'waiting') {
+      setPage('orders')
+      return
+    }
+    confirmBackToCart.current = fromCart
+    setToast(null)
+    setReviewQuote(quote)
+    setRepriced(false)
+    setPage('confirm')
+  }
+
   const submitOrder = () => {
     if (pendingRound && prepayExpiresAt) {
       if (Date.now() >= prepayExpiresAt) { expireTablePayment(); return }
@@ -329,10 +341,22 @@ export default function App() {
     setSheet('leave-payment')
   }
 
-  const cancelPendingOrder = () => {
+  const cancelPayment = () => {
     setSheet(null)
     setPaymentResult({ kind: 'cancelled' })
-    setPage('confirm')
+    setPage(pendingRound ? 'confirm' : 'orders')
+  }
+
+  const canReturnToCart = !!pendingRound && (paymentResult?.kind === 'expired' || paymentResult?.kind === 'cancelled')
+  const dismissPaymentResult = (openCart = false) => {
+    setPaymentResult(null)
+    if (!canReturnToCart) return
+    setPendingRound(null)
+    setPrepayExpiresAt(null)
+    setReviewQuote(null)
+    setRepriced(false)
+    setPage(null)
+    if (openCart) setSheet('cart')
   }
 
   const resetSession = () => {
@@ -340,6 +364,7 @@ export default function App() {
     setPayments([])
     setLastPaidAmount(null)
     setAnimateOrderSuccess(false)
+    setDetailFromList(false)
     setLines([])
     setCoupon(null)
     setCouponNotice(null)
@@ -419,19 +444,25 @@ export default function App() {
           </section>}
 
           {table && (
-            <div className="mx-5 mt-3">
-              <div className="member-entry flex min-h-18 items-center justify-between gap-3 rounded-card border border-line bg-white p-4">
-                <button type="button" onClick={() => setPage('member')} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left active:opacity-70">
+            <div className="mx-7 mt-3 flex items-stretch gap-2 max-[359px]:mx-4">
+              {memberEntryEnabled && (
+                <button type="button" onClick={() => setPage('member')} className="member-entry flex min-h-18 min-w-0 flex-1 items-center gap-3 rounded-card py-3 pr-1 text-left active:opacity-70 max-[359px]:gap-2">
                   <img src={HOME_AVATAR} width={40} height={40} alt="" className="size-10 shrink-0 rounded-full bg-tile object-cover" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-callout font-semibold">{memberLoggedIn && member ? member.name : uiText(lang, 'welcome_please_sign_in_3b8ad')}</span>
-                    <span className="mt-1 block text-caption text-ink-2">{memberLoggedIn ? (uiText(lang, 'member_7930b')) : (uiText(lang, 'member_benefits_a61a2'))}</span>
+                    <span className="inline-flex max-w-full items-center gap-1 text-headline font-semibold">
+                      <span className="min-w-0 break-words">{memberLoggedIn && member ? member.name : uiText(lang, 'welcome_please_sign_in_3b8ad')}</span>
+                      <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-2" />
+                    </span>
+                    <span className="mt-1 block text-callout text-ink-2">{memberLoggedIn ? (uiText(lang, 'member_7930b')) : (uiText(lang, 'member_benefits_a61a2'))}</span>
                   </span>
-                  <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-ink-2" />
                 </button>
-                <button type="button" aria-label={uiText(lang, 'switch_table_7b2a0')} onClick={() => setSheet('switch-table')} className="flex min-h-11 shrink-0 items-center justify-end border-l border-line pl-3 text-right text-ink active:opacity-70">
-                  <span className="text-headline font-semibold tabular-nums">{table}</span>
-                </button>
+              )}
+              {memberEntryEnabled && <span aria-hidden="true" className="h-9 w-px shrink-0 self-center bg-line" />}
+              <div className="ml-auto flex min-h-18 min-w-16 shrink-0 flex-col items-end justify-center py-2 pl-2.5 text-center max-[359px]:min-w-15">
+                <span className="flex flex-col items-center gap-0.5">
+                  <span className="text-callout text-ink-2">{uiText(lang, 'table_number')}</span>
+                  <strong className="text-title font-semibold text-ink tabular-nums">{table}</strong>
+                </span>
               </div>
             </div>
           )}
@@ -480,7 +511,9 @@ export default function App() {
           ))}
         </div>}
 
-        {entered && !page && count > 0 && <CartBar count={count} total={quote.total / 100} lang={lang} bump={bump} onOpen={() => request?.status === 'waiting' ? setPage('orders') : setSheet('cart')} />}
+        {entered && !page && count > 0 && (
+          <CartBar count={count} total={quote.total / 100} lang={lang} bump={bump} onOpen={() => setSheet('cart')} onCheckout={() => openConfirmation(false)} />
+        )}
 
         {/* ---------- Full-screen pages ---------- */}
         {(page === 'search' || (page && typeof page === 'object' && page.returnTo === 'search')) && (
@@ -544,11 +577,9 @@ export default function App() {
               table={table}
               setContact={setContact}
               guests={guests}
-              setGuests={setGuests}
               tablePrepay={!!table && prepay}
               orderNote={draftOrderNote ?? orderNote}
               setOrderNote={setDraftOrderNote}
-              onSwitchTable={() => setSheet('switch-table')}
               onAddMore={() => setPage(null)}
               prepay={prepay && online}
               setMode={(next) => { setMode(next); setReviewQuote(quoteCart(lines, { ...pricingOptions, mode: next })); setRepriced(false) }}
@@ -558,7 +589,7 @@ export default function App() {
                   return
                 }
                 setPage(null)
-                setSheet('cart')
+                if (confirmBackToCart.current) setSheet('cart')
               }}
               onSubmit={submitOrder}
             />
@@ -578,7 +609,7 @@ export default function App() {
                 lang={lang}
                 backDisabled={page !== 'my-orders'}
                 onClose={() => setPage(null)}
-                onDetails={() => { setDetailFromList(true); setPage('orders') }}
+                onDetails={() => { setLastPaidAmount(null); setDetailFromList(true); setPage('orders') }}
                 onAddMore={() => setPage(null)}
               />
             </div>
@@ -591,6 +622,7 @@ export default function App() {
               payments={payments}
               animateSuccess={animateOrderSuccess}
               lastPaidAmount={lastPaidAmount}
+              showTableStatus={!detailFromList || lastPaidAmount !== null}
               mode={rounds[0]?.mode ?? mode}
               orderNo={ORDER_NO}
               pickup={PICKUP}
@@ -646,21 +678,11 @@ export default function App() {
             resultSheet={paymentResult ? (
               <PaymentResultSheet
                 result={paymentResult}
-                cancelledOrder={paymentResult.kind === 'cancelled' && !!pendingRound && !!table}
                 lang={lang}
                 orderNo={ORDER_NO}
-                onClose={() => {
-                  setPaymentResult(null)
-                  if (paymentResult.kind === 'expired' || (paymentResult.kind === 'cancelled' && pendingRound && table)) {
-                    setPendingRound(null)
-                    setPrepayExpiresAt(null)
-                    setDraftOrderNote(null)
-                    setLines([])
-                    setReviewQuote(null)
-                    setPage(null)
-                  }
-                }}
-                onRetry={paymentResult.kind !== 'success' && paymentResult.kind !== 'expired' && !(paymentResult.kind === 'cancelled' && pendingRound && table) && (pendingRound || bill.remaining > 0) && (!prepayExpiresAt || Date.now() < prepayExpiresAt) ? () => {
+                onClose={() => dismissPaymentResult()}
+                onReturnToCart={canReturnToCart ? () => dismissPaymentResult(true) : undefined}
+                onRetry={paymentResult.kind !== 'success' && paymentResult.kind !== 'expired' && !canReturnToCart && (pendingRound || bill.remaining > 0) && (!prepayExpiresAt || Date.now() < prepayExpiresAt) ? () => {
                   setPaymentResult(null)
                   setPaymentAttempt((attempt) => attempt + 1)
                   setPage('pay')
@@ -669,6 +691,7 @@ export default function App() {
             ) : undefined}
             expiresAt={pendingRound ? prepayExpiresAt : null}
             onExpired={expireTablePayment}
+            onCancelPayment={cancelPayment}
             balance={pendingRound ? pendingRound.quote.total / 100 : bill.remaining}
             gateway={gateway || !!table}
             direct={!!table}
@@ -699,13 +722,13 @@ export default function App() {
                 setCoupon(null)
                 setCouponNotice(null)
               }
+              setLastPaidAmount(payment.amount)
               if (table) {
                 sessionStore.removeItem(paymentSessionKey)
                 setCheckingPayment(false)
                 setPage('orders')
               } else {
                 setSettled(true)
-                setLastPaidAmount(payment.amount)
                 setPage('orders')
               }
             }}
@@ -713,19 +736,6 @@ export default function App() {
         )}
 
         {/* ---------- Sheets ---------- */}
-        {sheet === 'switch-table' && table && (
-          <TableScanSheet
-            lang={lang}
-            table={table}
-            canSwitch={canSwitchTable}
-            onClose={() => setSheet(null)}
-            onConfirm={(next) => {
-              if (!canSwitchTable) return
-              setTable(next)
-              setSheet(null)
-            }}
-          />
-        )}
         {sheet === 'leave-payment' && (
           <BottomSheet
             modal
@@ -733,7 +743,7 @@ export default function App() {
             onClose={() => setSheet(null)}
             footer={
               <div className="flex gap-3">
-                <Button variant="secondary" className="flex-1" onClick={cancelPendingOrder}>{uiText(lang, 'cancel_order_aba37')}</Button>
+                <Button variant="secondary" className="flex-1" onClick={cancelPayment}>{uiText(lang, 'cancel_order_aba37')}</Button>
                 <Button className="flex-1" onClick={submitOrder} aria-label={uiText(lang, 'continue_payment')}>
                   {lang === 'en' ? t(strings.continueOrder) : uiText(lang, 'continue_payment')}
                 </Button>
@@ -804,13 +814,7 @@ export default function App() {
                     <p aria-label={`${t(strings.total)} ${money(quote.total / 100)}`} className="text-title font-semibold tabular-nums">{money(quote.total / 100)}</p>
                   </div>
                   <Button
-                    onClick={() => {
-                      setToast(null)
-                      setReviewQuote(quote)
-                      setRepriced(false)
-                      setSheet(null)
-                      setPage('confirm')
-                    }}
+                    onClick={() => openConfirmation(true)}
                     className="flex-1"
                   >
                     {t(strings.continueOrder)}

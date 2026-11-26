@@ -177,28 +177,60 @@ export const dishes: Dish[] = [
 
 
 /* ---------- Customisation ---------- */
-export type Option = { id: string; name: L10n; price?: number }
-export type OptionGroup = { id: string; name: L10n; type: 'single' | 'multi'; size?: boolean; options: Option[] }
+export type Option = { id: string; name: L10n; price?: number; groups?: OptionGroup[] }
+export type OptionGroup = {
+  id: string
+  name: L10n
+  type: 'single' | 'multi'
+  size?: boolean
+  unit?: 'portion'
+  min?: number
+  max?: number
+  options: Option[]
+}
 
-const g = (id: string, name: L10n, type: 'single' | 'multi', opts: [string, L10n, number?][], size = false): OptionGroup => ({
+const g = (id: string, name: L10n, type: 'single' | 'multi', opts: [string, L10n, number?, OptionGroup[]?][], size = false): OptionGroup => ({
   id,
   name,
   type,
   size,
-  options: opts.map(([oid, n, price]) => ({ id: `${id}.${oid}`, name: n, price })),
+  options: opts.map(([oid, n, price, groups]) => ({ id: `${id}.${oid}`, name: n, price, groups })),
+})
+
+const setDrinkIce = (drinkId: string): OptionGroup => ({
+  ...g(`${drinkId}.ice`, L('Ice', '冰量', '冰量'), 'single', [
+    ['less', L('Less ice', '少冰', '少冰')],
+    ['none', L('No ice', '走冰', '去冰')],
+  ]),
+  min: 0,
+  max: 1,
+})
+
+const setDrinkMilk = (drinkId: string): OptionGroup => ({
+  ...g(`${drinkId}.milk`, L('Milk', '奶量', '奶量'), 'multi', [
+    ['extra', L('Extra milk', '多奶', '多奶')],
+  ]),
+  max: 1,
 })
 
 const G = {
-  setDrink: g('setDrink', L('Choose a drink', '選擇套餐飲品', '选择套餐饮品'), 'single', [
-    ['hotMilkTea', L('Hot milk tea', '熱奶茶', '热奶茶')],
-    ['hotLemonTea', L('Hot lemon tea', '熱檸茶', '热柠茶')],
-    ['icedMilkTea', L('Iced milk tea', '凍奶茶', '冻奶茶'), 3],
-    ['icedLemonTea', L('Iced lemon tea', '凍檸茶', '冻柠茶'), 3],
-  ]),
-  setExtra: g('setExtra', L('Add-ons', '套餐加配', '套餐加配'), 'multi', [
-    ['eggTart', L('Egg tart', '酥皮蛋撻', '酥皮蛋挞'), 12],
-    ['soup', L('Soup of the day', '是日餐湯', '是日餐汤'), 10],
-  ]),
+  setDrink: {
+    ...g('setDrink', L('Choose a drink', '選擇套餐飲品', '选择套餐饮品'), 'single', [
+      ['hotMilkTea', L('Hot milk tea', '熱奶茶', '热奶茶'), undefined, [setDrinkMilk('hotMilkTea')]],
+      ['hotLemonTea', L('Hot lemon tea', '熱檸茶', '热柠茶')],
+      ['icedMilkTea', L('Iced milk tea', '凍奶茶', '冻奶茶'), 3, [setDrinkIce('icedMilkTea'), setDrinkMilk('icedMilkTea')]],
+      ['icedLemonTea', L('Iced lemon tea', '凍檸茶', '冻柠茶'), 3, [setDrinkIce('icedLemonTea')]],
+    ]),
+    unit: 'portion',
+  } satisfies OptionGroup,
+  setExtra: {
+    ...g('setExtra', L('Add-ons', '套餐加配', '套餐加配'), 'multi', [
+      ['eggTart', L('Egg tart', '酥皮蛋撻', '酥皮蛋挞'), 12],
+      ['soup', L('Soup of the day', '是日餐湯', '是日餐汤'), 10],
+    ]),
+    max: 2,
+    unit: 'portion',
+  } satisfies OptionGroup,
   spice: g('spice', L('Spice level', '辣度', '辣度'), 'single', [
     ['0', L('Not spicy', '不辣', '不辣')],
     ['1', L('Mild', '小辣', '微辣')],
@@ -285,8 +317,12 @@ export const dishHints: Record<string, L10n> = {
   sw4: L('e.g. lemon on the side', '例如：檸檬另上', '例如：柠檬另放'),
 }
 
+export function optionTree(groups: OptionGroup[]): Option[] {
+  return groups.flatMap((group) => group.options.flatMap((option) => [option, ...optionTree(option.groups ?? [])]))
+}
+
 export const allOptions: Record<string, Option> = Object.fromEntries(
-  Object.values(G).flatMap((grp) => grp.options.map((o) => [o.id, o])),
+  optionTree(Object.values(G)).map((option) => [option.id, option]),
 )
 
 export const strings = {
@@ -313,7 +349,7 @@ export const strings = {
   packagingFee: L('Packaging fee', '包裝費', '包装费'),
   quantity: L('Quantity', '數量', '数量'),
   customize: L('Customize dish', '選擇菜品規格', '选择菜品规格'),
-  inCart: L('In cart', '購物車已有', '购物车已有'),
+  selected: L('Selected', '已選', '已选'),
   service: L('Service charge', '服務費', '服务费'),
   total: L('Total', '總計', '总计'),
   placeOrder: L('Send to kitchen', '確認落單', '确认下单'),

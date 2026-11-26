@@ -7,8 +7,8 @@ import type { PriceQuote } from '../pricing'
 import type { Mode } from './Welcome'
 import { ItemList, OrderAmounts, calculateBill, countLabel, itemCount, type Round, type PaymentRecord } from './orders'
 import { StoreCard } from './store'
-import { Button, InlineAlert, OptionChip, Page, Row, Section, TextButton, fieldClass, money, textareaClass } from './ui'
-import { FeeRows, feeText } from './pricing'
+import { Button, InlineAlert, OptionChip, Page, Section, TextButton, fieldClass, textareaClass } from './ui'
+import { feeText } from './pricing'
 import { PaymentCountdown, usePaymentCountdown } from './pay'
 
 export type Contact = { name: string; phone: string }
@@ -34,10 +34,8 @@ export function ConfirmPage({
   setMode,
   prepay,
   guests,
-  setGuests,
   tablePrepay, onAddMore, orderNote, setOrderNote,
   onBack,
-  onSwitchTable,
   onSubmit,
 }: {
   lines: CartLine[]
@@ -57,13 +55,11 @@ export function ConfirmPage({
   setMode: (m: Mode) => void
   prepay: boolean
   guests: number
-  setGuests: (n: number) => void
   tablePrepay: boolean
   onAddMore: () => void
   orderNote: string
   setOrderNote: (s: string) => void
   onBack: () => void
-  onSwitchTable: () => void
   onSubmit: () => void
 }) {
   const t = (s: L10n) => s[lang]
@@ -105,7 +101,18 @@ export function ConfirmPage({
 
       {table ? (
         <Section>
-          <div className="confirm-table"><div className="confirm-table-name"><span className="confirm-table-icon"><img src={`${import.meta.env.BASE_URL}confirm-assets/table.svg`} alt="" /></span><strong>{table}</strong></div><Button size="md" onClick={onSwitchTable} disabled={checkingPayment}>{uiText(lang, 'switch_table_7b2a0')}</Button></div>
+          <div className="confirm-table">
+            <div className="confirm-table-name">
+              <span className="confirm-table-icon" aria-hidden="true">
+                <span style={{ maskImage: `url(${import.meta.env.BASE_URL}confirm-assets/table.svg)` }} />
+              </span>
+              <strong>{table}</strong>
+            </div>
+            <span className="flex flex-wrap items-baseline justify-end gap-x-2 pr-1 text-right text-callout text-ink-2">
+              {uiText(lang, 'guest_count')}
+              <strong className="text-body font-semibold text-ink tabular-nums">{lang === 'en' ? guests : `${guests} 人`}</strong>
+            </span>
+          </div>
         </Section>
       ) : !isAddOn ? (
         <>
@@ -131,12 +138,9 @@ export function ConfirmPage({
       {paymentTime && <div className="px-gutter pt-stack"><PaymentCountdown time={paymentTime} lang={lang} variant="status-row" /></div>}
       <Section
         title={table ? (uiText(lang, 'items_2f38f')) : t(strings.yourItems)}
-        trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(itemCount(lines) + (table ? previousRounds.reduce((sum, round) => sum + itemCount(round.lines), 0) : 0), lang)}</span>}
+        trailing={<span className="text-caption text-ink-2 tabular-nums">{countLabel(itemCount(lines), lang)}</span>}
       >
         <div className="confirm-item-groups">
-          {table && previousRounds.map((round) => (
-            <ItemList key={round.id} lines={round.lines} lang={lang} amounts={round.quote.rows} status="ordered" />
-          ))}
           <div>
             <ItemList lines={expanded ? lines : lines.slice(0, 3)} lang={lang} amounts={quote.rows} status={table && previousRounds.length ? 'pending' : undefined} />
             {lines.length > 3 && <TextButton tone="muted" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="mt-2 w-full justify-center gap-1">{expanded ? (uiText(lang, 'show_less_aff96')) : (uiText(lang, 'view_more_items_7fd3a'))}{expanded ? <ChevronUp className="size-4" aria-hidden="true" /> : <ChevronDown className="size-4" aria-hidden="true" />}</TextButton>}

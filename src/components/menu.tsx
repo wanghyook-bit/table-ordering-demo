@@ -1,10 +1,10 @@
 import { uiText } from '../i18n'
 import { useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight, CupSoda, Pencil, Search, ShoppingBag } from 'lucide-react'
-import { dishHints, dishes, dishOptions, dishTags, strings, type Dish, type L10n, type Lang, type OptionGroup } from '../data'
+import { dishHints, dishes, dishOptions, dishTags, optionTree, strings, type Dish, type L10n, type Lang, type OptionGroup } from '../data'
 import { useBackSwipe } from '../gestures'
 import { useExitMotion } from '../exit-motion'
-import { isCustomizable, optsLabel, unitPrice, type CartLine } from '../cart'
+import { isCustomizable, optionBounds, optsLabel, unitPrice, type CartLine } from '../cart'
 import { AddButton, BackButton, Button, DishImage, Empty, OptionChip, Price, Stepper, Tag, TextButton, Thumb, fieldFocusClass, textareaClass } from './ui'
 
 const MAX_DISH_NOTE = 200
@@ -64,12 +64,8 @@ export function DishCard({
           className="aspect-[4/3] w-full transition duration-500 hover:scale-105"
         />
         <span className="absolute inset-x-2 top-2 flex flex-wrap items-start justify-between gap-1">
-          {ordered > 0 ? (
-            <Tag tone="brand">{strings.ordered[lang]} {ordered}</Tag>
-          ) : (
-            <span />
-          )}
-          {dish.tag && !dish.soldOut && <DishTag kind={dish.tag} lang={lang} />}
+          {ordered > 0 && <Tag tone="brand">{strings.ordered[lang]} {ordered}</Tag>}
+          {dish.tag && !dish.soldOut && <span className="ml-auto"><DishTag kind={dish.tag} lang={lang} /></span>}
         </span>
         {dish.soldOut && (
           <span className="absolute inset-0 flex items-center justify-center bg-white/40">
@@ -81,8 +77,8 @@ export function DishCard({
         <h3 className="break-words text-body font-semibold">{dish.name[lang]}</h3>
         {dish.unit.en === '2 pcs' && <span className="mt-0.5 text-callout text-ink-2">{dish.unit[lang]}</span>}
       </button>
-      <div className="mt-auto flex min-h-12 items-center gap-0.5 px-3 pb-2">
-        <p className="flex min-w-0 flex-1 items-baseline gap-0.5 text-headline font-semibold whitespace-nowrap">
+      <div className="mt-auto flex min-h-12 flex-wrap items-center gap-x-0.5 px-3 pb-2">
+        <p className="flex min-w-max flex-1 items-baseline gap-0.5 text-headline font-semibold whitespace-nowrap">
           <Price value={dish.price} className="shrink-0" />
         </p>
         {!dish.soldOut && <DishAddButton dish={dish} lang={lang} qty={qty} onClick={onAdd} />}
@@ -92,16 +88,73 @@ export function DishCard({
 }
 
 function DishAddButton({ dish, lang, qty, onClick }: { dish: Dish; lang: Lang; qty: number; onClick: () => void }) {
-  const action = isCustomizable(dish) ? strings.customize : strings.add
-  if (isCustomizable(dish)) return (
-    <button type="button" onClick={onClick} aria-label={`${action[lang]} · ${dish.name[lang]}${qty > 0 ? ` · ${strings.inCart[lang]} ×${qty}` : ''}`} className="group relative flex h-11 shrink-0 items-center justify-end rounded-full">
-      {qty > 0 && <span className="-mr-2 flex h-7 items-center rounded-full bg-brand-soft pr-2.5 pl-2 text-caption font-semibold text-action tabular-nums">×{qty}</span>}
-      <span className="relative flex h-8 items-center justify-center rounded-full bg-action px-3 text-caption font-semibold whitespace-nowrap text-white transition group-active:scale-95 group-active:bg-action-pressed">
-        {lang === 'en' ? 'Options' : lang === 'zh' ? '选规格' : '選規格'}
-      </span>
-    </button>
+  const customizable = isCustomizable(dish)
+  const action = customizable ? `${strings.customize[lang]} · ${dish.name[lang]}` : strings.add[lang]
+  const label = qty > 0 ? `${action} · ${strings.selected[lang]} ${qty}` : action
+  const optionsLabel = customizable ? { en: 'Options', zh: '选规格', hk: '選規格' }[lang] : undefined
+  return <AddButton onClick={onClick} label={label} qty={qty} optionsLabel={optionsLabel} />
+}
+
+type DishSelections = Record<string, string[]>
+
+function activeOptionGroups(groups: OptionGroup[], selection: DishSelections): OptionGroup[] {
+  return groups.flatMap((group) => [
+    group,
+    ...group.options.flatMap((option) =>
+      selection[group.id]?.includes(option.id) ? activeOptionGroups(option.groups ?? [], selection) : [],
+    ),
+  ])
+}
+
+function optionRuleLabels(group: OptionGroup, lang: Lang) {
+  const { min, max } = optionBounds(group)
+  const unit = group.unit === 'portion' ? '份' : lang === 'hk' ? '項' : '项'
+  const minLabel = lang === 'en' ? `Required: ${min}` : `${lang === 'hk' ? '必選' : '必选'} ${min} ${unit}`
+  const maxLabel = lang === 'en' ? `Max. ${max}` : `${lang === 'hk' ? '最多選' : '最多选'} ${max} ${unit}`
+  return [
+    ...(min > 0 ? [minLabel] : []),
+    ...(group.max !== undefined && max !== min ? [maxLabel] : []),
+  ]
+}
+
+function DishOptionSection({ group, selection, lang, onToggle }: {
+  group: OptionGroup
+  selection: DishSelections
+  lang: Lang
+  onToggle: (group: OptionGroup, optionId: string) => void
+}) {
+  const selected = selection[group.id] ?? []
+  const { max } = optionBounds(group)
+  const rules = optionRuleLabels(group, lang)
+  const children = group.options.filter((option) => selected.includes(option.id) && option.groups?.length)
+  return (
+    <section>
+      <h2 className="mb-2 flex flex-wrap items-center gap-2 text-body font-semibold text-ink">
+        {group.name[lang]}
+        {rules.map((rule) => (
+          <span key={rule} className="rounded-sm bg-tile px-2 py-0.5 text-caption font-medium text-ink-2">{rule}</span>
+        ))}
+      </h2>
+      <div className="flex flex-wrap gap-2">
+        {group.options.map((option, index) => {
+          const active = selected.includes(option.id)
+          return (
+            <OptionChip key={option.id} active={active} disabled={!active && group.type === 'multi' && selected.length >= max} onClick={() => onToggle(group, option.id)} className="dish-option">
+              {group.size && <CupSoda aria-hidden="true" size={14 + index * 3} className="shrink-0" />}
+              {option.name[lang]}
+              {option.price ? <span className={active ? '' : 'text-muted'}>+${option.price}</span> : null}
+            </OptionChip>
+          )
+        })}
+      </div>
+      {children.map((option) => (
+        <div key={option.id} className="mt-4 space-y-4 border-l border-line pl-3">
+          {group.type === 'multi' && <h3 className="text-callout font-medium text-ink-2">{option.name[lang]}</h3>}
+          {option.groups?.map((child) => <DishOptionSection key={child.id} group={child} selection={selection} lang={lang} onToggle={onToggle} />)}
+        </div>
+      ))}
+    </section>
   )
-  return <AddButton onClick={onClick} label={`${action[lang]}${qty > 0 ? ` · ${strings.inCart[lang]} ×${qty}` : ''}`} qty={qty} />
 }
 
 /** Full-screen dish page: photo, options and product-specific requests. */
@@ -121,15 +174,27 @@ export function DishPage({
   onAdd: (opts: string[], note: string, qty: number) => void
 }) {
   const groups = dishOptions[dish.id] ?? []
-  const [sel, setSel] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(groups.map((g) => [g.id, initialLine ? g.options.filter(o => initialLine.opts.includes(o.id)).map(o => o.id) : g.type === 'single' ? [g.options[0].id] : []])),
-  )
+  const [sel, setSel] = useState<DishSelections>(() => {
+    if (initialLine) {
+      const configured = [...groups, ...optionTree(groups).flatMap((option) => option.groups ?? [])]
+      return Object.fromEntries(configured.map((group) => [
+        group.id, group.options.filter((option) => initialLine.opts.includes(option.id)).map((option) => option.id),
+      ]))
+    }
+    return Object.fromEntries(groups.filter((group) => group.type === 'single' && optionBounds(group).min > 0).map((group) => [group.id, [group.options[0].id]]))
+  })
   const { panel, dismiss } = useExitMotion(onClose, 'right')
   const swipe = useBackSwipe(dismiss)
   const [note, setNote] = useState(initialLine?.note ?? '')
   const [noteOpen, setNoteOpen] = useState(false)
   const [n, setN] = useState(initialLine?.qty ?? 1)
-  const opts = Object.values(sel).flat()
+  const activeGroups = activeOptionGroups(groups, sel)
+  const opts = activeGroups.flatMap((group) => sel[group.id] ?? [])
+  const valid = activeGroups.every((group) => {
+    const { min, max } = optionBounds(group)
+    const count = sel[group.id]?.length ?? 0
+    return count >= min && count <= max
+  })
   const price = unitPrice(dish, opts)
   const t = (s: L10n) => s[lang]
   const noteTokens = note.split(/[，,\s]+/).filter(Boolean)
@@ -141,12 +206,15 @@ export function DishPage({
     return [...tokens, label].join('，').slice(0, MAX_DISH_NOTE)
   })
 
-  const toggle = (g: OptionGroup, id: string) =>
-    setSel((s) => {
-      if (g.type === 'single') return { ...s, [g.id]: [id] }
-      const cur = s[g.id] ?? []
-      return { ...s, [g.id]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] }
-    })
+  const toggle = (group: OptionGroup, id: string) => setSel((current) => {
+    const selected = current[group.id] ?? []
+    const { min, max } = optionBounds(group)
+    const removing = selected.includes(id)
+    if (removing && group.type === 'single' && min > 0) return current
+    if (!removing && group.type === 'multi' && selected.length >= max) return current
+    const next = { ...current, [group.id]: removing ? selected.filter((value) => value !== id) : group.type === 'single' ? [id] : [...selected, id] }
+    return Object.fromEntries(activeOptionGroups(groups, next).map(({ id: groupId }) => [groupId, next[groupId] ?? []]))
+  })
 
   return (
     <div {...swipe} ref={panel} className="animate-slide absolute inset-0 z-50 flex touch-pan-y flex-col bg-white">
@@ -176,23 +244,7 @@ export function DishPage({
               <Stepper min={1} qty={n} onMinus={() => setN((v) => v - 1)} onPlus={() => setN((v) => v + 1)} />
             )}
           </div>
-          {groups.map((g) => (
-            <section key={g.id}>
-              <h2 className="mb-2 text-body font-semibold text-ink">{t(g.name)}</h2>
-              <div className="flex flex-wrap gap-2">
-                {g.options.map((o, index) => {
-                  const on = !!sel[g.id]?.includes(o.id)
-                  return (
-                    <OptionChip key={o.id} active={on} onClick={() => toggle(g, o.id)} className="dish-option">
-                      {g.size && <CupSoda aria-hidden="true" size={14 + index * 3} className="shrink-0" />}
-                      {t(o.name)}
-                      {o.price ? <span className={on ? '' : 'text-muted'}>+${o.price}</span> : null}
-                    </OptionChip>
-                  )
-                })}
-              </div>
-            </section>
-          ))}
+          {groups.map((group) => <DishOptionSection key={group.id} group={group} selection={sel} lang={lang} onToggle={toggle} />)}
           <section>
             <button type="button" className="confirm-note-toggle" aria-expanded={noteOpen} onClick={() => setNoteOpen(!noteOpen)}>
               <strong>{t(strings.specialRequest)}</strong>
@@ -215,7 +267,7 @@ export function DishPage({
           <span className="sr-only">{strings.subtotal[lang]}</span>
           <Price value={price * n} className="block text-title font-semibold" />
         </div>
-        <Button disabled={dish.soldOut} onClick={() => onAdd(opts, note, n)} className="min-w-0 flex-1">
+        <Button disabled={dish.soldOut || !valid} onClick={() => { if (valid && !dish.soldOut) onAdd(opts, note, n) }} className="min-w-0 flex-1">
           {dish.soldOut ? t(strings.soldOut) : initialLine ? ({en: 'Save changes', hk: '儲存修改', zh: '保存修改'}[lang]) : t(strings.add)}
         </Button>
       </div>
@@ -280,13 +332,9 @@ export function SearchOverlay({
                     <span className="min-w-0">
                       <span className="block text-body font-medium">{d.name[lang]}</span>
                       {d.unit.en === '2 pcs' && <span className="block text-callout text-ink-2">{d.unit[lang]}</span>}
-                      <span className="mt-1 flex items-center gap-2">
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <Price value={d.price} className="text-body font-semibold" />
-                        {ordered > 0 && (
-                          <Tag tone="brand">
-                            {strings.ordered[lang]} {ordered}
-                          </Tag>
-                        )}
+                        {ordered > 0 && <Tag tone="brand">{strings.ordered[lang]} {ordered}</Tag>}
                       </span>
                     </span>
                   </button>
@@ -325,11 +373,12 @@ export function CartRow({ line, lang, amount, children, onEdit }: { line: CartLi
 }
 
 /** Floating cart bar: count + total + solid brand checkout button. */
-export function CartBar({ count, total, lang, bump, onOpen }: { count: number; total: number; lang: Lang; bump: number; onOpen: () => void }) {
+export function CartBar({ count, total, lang, bump, onOpen, onCheckout }: { count: number; total: number; lang: Lang; bump: number; onOpen: () => void; onCheckout: () => void }) {
   return (
     <div className="animate-pop absolute inset-x-5 bottom-[max(20px,env(safe-area-inset-bottom))] z-30">
       <div className="glass-bar flex items-center gap-3 rounded-full border border-white/75 p-2 text-ink shadow-float">
         <button onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          <span className="sr-only">{strings.cart[lang]}</span>
           <span key={bump} className="animate-pop relative flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-ink">
             <ShoppingBag className="size-5" />
             <span className="absolute -top-1 -right-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-action px-1 text-caption font-semibold text-white tabular-nums ring-2 ring-white">
@@ -341,7 +390,7 @@ export function CartBar({ count, total, lang, bump, onOpen }: { count: number; t
             <Price value={total} className="block truncate text-headline font-semibold" />
           </span>
         </button>
-        <Button size="md" onClick={onOpen} className="px-6">
+        <Button size="md" onClick={onCheckout} className="px-6">
           {strings.review[lang]}
         </Button>
       </div>
